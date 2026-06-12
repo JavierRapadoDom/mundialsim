@@ -4,7 +4,7 @@
 // fuerza del equipo y su experiencia internacional.
 
 import { REAL_SQUADS } from './realSquads.js'
-import { NATURAL_POS, inferSpecific, FORMATION_SLOTS, SPEC_LINE, posPenalty } from './positions.js'
+import { posSetFor, FORMATION_SLOTS, penaltyForSet } from './positions.js'
 
 const POS_MAP = { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' }
 const POS_ORDER = { POR: 0, DEF: 1, MED: 2, DEL: 3 }
@@ -53,11 +53,13 @@ export function getSquad(team) {
 
   squad.sort((a, b) => POS_ORDER[a.pos] - POS_ORDER[b.pos] || b.r - a.r)
 
-  // Demarcación natural: real para las figuras, inferida (determinista) para el
-  // resto repartiendo roles realistas dentro de cada línea.
+  // Demarcaciones: posSet = todas las posiciones que puede ocupar sin
+  // penalización (real para figuras, inferida para el resto). npos = principal.
   const lineIdx = { POR: 0, DEF: 0, MED: 0, DEL: 0 }
   for (const p of squad) {
-    p.npos = NATURAL_POS[p.n] ?? inferSpecific(p.pos, lineIdx[p.pos]++)
+    const idx = lineIdx[p.pos]++
+    p.posSet = posSetFor(p.n, p.pos, idx)
+    p.npos = p.posSet[0]
   }
 
   cache[team.id] = squad
@@ -70,66 +72,59 @@ export const FORMATIONS = {
   '4-3-3': { DEF: 4, MED: 3, DEL: 3 },
   '4-4-2': { DEF: 4, MED: 4, DEL: 2 },
   '4-2-3-1': { DEF: 4, MED: 5, DEL: 1 },
+  '4-1-4-1': { DEF: 4, MED: 5, DEL: 1 },
+  '4-4-2 ◇': { DEF: 4, MED: 4, DEL: 2 },
   '3-5-2': { DEF: 3, MED: 5, DEL: 2 },
+  '3-4-3': { DEF: 3, MED: 4, DEL: 3 },
+  '3-4-1-2': { DEF: 3, MED: 5, DEL: 2 },
   '5-3-2': { DEF: 5, MED: 3, DEL: 2 },
+  '5-4-1': { DEF: 5, MED: 4, DEL: 1 },
 }
 
-// Mejor XI posible para una formación dada. Si los jugadores traen estado de
-// torneo (fit), pesa la frescura: un suplente fresco puede ganarle el puesto
-// a un titular fundido.
-const xiScore = p => p.r * (p.fit != null ? 0.85 + 0.15 * (p.fit / 100) : 1)
+// Peso por frescura: un suplente fresco puede ganarle el puesto a un titular
+// fundido (solo cuando los jugadores traen estado de torneo).
+const fitW = p => (p.fit != null ? 0.85 + 0.15 * (p.fit / 100) : 1)
 
-export function bestXI(squad, formation = '4-3-3') {
-  const shape = { POR: 1, ...FORMATIONS[formation] }
-  const xi = []
-  for (const pos of ['POR', 'DEF', 'MED', 'DEL']) {
-    const players = squad.filter(p => p.pos === pos).sort((a, b) => xiScore(b) - xiScore(a))
-    xi.push(...players.slice(0, shape[pos]))
-  }
-  const bench = squad.filter(p => !xi.includes(p))
-  return { xi, bench }
-}
-
-// Coloca el mejor XI en las casillas de la formación, minimizando las
-// penalizaciones posicionales. Cada titular sale con su casilla (slotPos,
-// slotX, slotY) y su penalización para el partido (posPen).
+// Coloca a los 11 mejores en las casillas de la formación maximizando la suma
+// de medias EFECTIVAS (media − penalización posicional) y la frescura. Como
+// honra el conjunto de posiciones de cada jugador, un polivalente como Messi
+// puede ir de MCO o de ED sin penalización. Cada titular sale con su casilla
+// (slotPos/slotX/slotY) y su penalización para el partido (posPen).
 export function assignFormation(squad, formation = '4-3-3') {
-  const { xi, bench } = bestXI(squad, formation)
-  const slots = (FORMATION_SLOTS[formation] ?? FORMATION_SLOTS['4-3-3']).map((s, idx) => ({ ...s, idx }))
+  const slots = FORMATION_SLOTS[formation] ?? FORMATION_SLOTS['4-3-3']
+  const players = squad.filter(Boolean)
 
-  const place = (slot, p) => { assigned[slot.idx] = { ...p, slotPos: slot.pos, slotX: slot.x, slotY: slot.y, posPen: posPenalty(p.npos, slot.pos) } }
+  // Asignación voraz global: ordena todas las parejas (casilla, jugador) por
+  // valor efectivo y va fijando las mejores que no choquen.
+  const pairs = []
+  for (let si = 0; si < slots.length; si++) {
+    for (const p of players) {
+      const pen = penaltyForSet(p.posSet, slots[si].pos)
+      pairs.push({ si, p, pen, val: (p.r - pen) * fitW(p) })
+    }
+  }
+  pairs.sort((a, b) => b.val - a.val)
+
   const assigned = new Array(slots.length)
-  const pool = new Set(xi)
-
-  // 1) Reparto por líneas, minimizando penalización dentro de cada línea
-  const byLine = { POR: [], DEF: [], MED: [], DEL: [] }
-  for (const s of slots) byLine[SPEC_LINE[s.pos]].push(s)
-  for (const line of ['POR', 'DEF', 'MED', 'DEL']) {
-    const players = xi.filter(p => p.pos === line && pool.has(p))
-    for (const slot of byLine[line]) {
-      let best = null, bestScore = Infinity
-      for (const p of players) {
-        if (!pool.has(p)) continue
-        const score = posPenalty(p.npos, slot.pos) * 100 - p.r
-        if (score < bestScore) { bestScore = score; best = p }
-      }
-      if (best) { place(slot, best); pool.delete(best) }
-    }
+  const used = new Set()
+  let filled = 0
+  for (const pr of pairs) {
+    if (filled === slots.length) break
+    if (assigned[pr.si] || used.has(pr.p.id)) continue
+    const s = slots[pr.si]
+    assigned[pr.si] = { ...pr.p, slotPos: s.pos, slotX: s.x, slotY: s.y, posPen: pr.pen }
+    used.add(pr.p.id)
+    filled++
   }
 
-  // 2) Rellena casillas que quedaron vacías (líneas con menos jugadores que
-  // casillas, p. ej. por bajas) con el mejor jugador disponible que quede.
-  for (const slot of slots) {
-    if (assigned[slot.idx]) continue
-    let best = null, bestScore = Infinity
-    for (const p of pool) {
-      const score = posPenalty(p.npos, slot.pos) * 100 - p.r
-      if (score < bestScore) { bestScore = score; best = p }
-    }
-    if (best) { place(slot, best); pool.delete(best) }
-  }
-
+  const bench = players.filter(p => !used.has(p.id)).sort((a, b) => b.r - a.r)
   return { xi: assigned.filter(Boolean), bench }
+}
+
+// Mejor XI por líneas (lo usa el resto del código que aún lo importe)
+export function bestXI(squad, formation = '4-3-3') {
+  const { xi, bench } = assignFormation(squad, formation)
+  return { xi, bench }
 }
 
 // Media efectiva (descontando penalización posicional)

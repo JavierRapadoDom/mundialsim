@@ -3,7 +3,7 @@
 // minuto de juego y devuelve los eventos generados en él.
 
 import { assignFormation } from '../data/squads.js'
-import { posPenalty } from '../data/positions.js'
+import { penaltyForSet } from '../data/positions.js'
 
 export const TACTICS = {
   defensiva: { atk: 0.78, def: 1.18, label: 'Defensiva', icon: '🛡️' },
@@ -361,7 +361,7 @@ export function doSub(m, sideKey, outId, inId) {
   inP.enterMin = m.minute
   // El suplente hereda la casilla del que sale (y su posible penalización)
   inP.slotPos = outP.slotPos
-  inP.posPen = posPenalty(inP.npos, outP.slotPos)
+  inP.posPen = penaltyForSet(inP.posSet, outP.slotPos)
   side.bench = side.bench.filter(p => p.id !== inId)
   side.players.push(inP)
   side.subs--

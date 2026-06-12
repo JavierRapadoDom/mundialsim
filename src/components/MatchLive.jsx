@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { newMatch, tick, doSub, setTactic, setPressing, isOver, TACTICS, PRESSING } from '../engine/match.js'
-import { posPenalty } from '../data/positions.js'
+import { penaltyForSet } from '../data/positions.js'
 import Penalties from './Penalties.jsx'
 
 const EVENT_ICON = {
@@ -50,7 +50,7 @@ const stamColor = s => (s >= 60 ? 'var(--green)' : s >= 35 ? 'var(--gold)' : 'va
 
 function SubRow({ p, onClick, selected, disabled, dim, isBench, slotPos }) {
   // Penalización si este suplente entrara en la casilla del que sale
-  const pen = isBench && slotPos ? posPenalty(p.npos, slotPos) : 0
+  const pen = isBench && slotPos ? penaltyForSet(p.posSet, slotPos) : 0
   return (
     <button className={`sub-row ${selected ? 'sel' : ''} ${dim ? 'dim' : ''} ${p.injured ? 'injured' : ''}`} disabled={disabled} onClick={onClick}>
       <span className="sub-pos" style={{ background: POS_COLOR[p.pos] }}>{p.npos}</span>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { FORMATIONS, assignFormation, avgRating, effR } from '../data/squads.js'
+import { FORMATIONS, assignFormation, effR } from '../data/squads.js'
 import { TACTICS, PRESSING } from '../engine/match.js'
-import { posPenalty, fitOf, SPEC_FULL } from '../data/positions.js'
+import { penaltyForSet, fitOf, SPEC_FULL } from '../data/positions.js'
 
 const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e63946' }
 const fitColor = fit => (fit >= 70 ? 'var(--green)' : fit >= 40 ? 'var(--gold)' : 'var(--red)')
@@ -18,17 +18,24 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
   const [bench, setBench] = useState(initial.bench)
   const [sel, setSel] = useState(null) // { kind:'slot', i } | { kind:'bench', id }
 
+  const applyLineup = (nxi, nbench) => { setXi(nxi); setBench(nbench); setSel(null) }
+
   const changeFormation = f => {
     setFormation(f)
     const { xi: nxi, bench: nbench } = assignFormation(available, f)
-    setXi(nxi); setBench(nbench); setSel(null)
+    applyLineup(nxi, nbench)
+  }
+
+  const autoLineup = () => {
+    const { xi: nxi, bench: nbench } = assignFormation(available, formation)
+    applyLineup(nxi, nbench)
   }
 
   const swapSlots = (i, j) => {
     const a = xi[i], b = xi[j]
     const nx = [...xi]
-    nx[i] = { ...b, slotPos: a.slotPos, slotX: a.slotX, slotY: a.slotY, posPen: posPenalty(b.npos, a.slotPos) }
-    nx[j] = { ...a, slotPos: b.slotPos, slotX: b.slotX, slotY: b.slotY, posPen: posPenalty(a.npos, b.slotPos) }
+    nx[i] = { ...b, slotPos: a.slotPos, slotX: a.slotX, slotY: a.slotY, posPen: penaltyForSet(b.posSet, a.slotPos) }
+    nx[j] = { ...a, slotPos: b.slotPos, slotX: b.slotX, slotY: b.slotY, posPen: penaltyForSet(a.posSet, b.slotPos) }
     setXi(nx)
   }
 
@@ -38,7 +45,7 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
     const { slotPos, slotX, slotY } = xi[i]
     const { posPen, ...oldCore } = xi[i]
     const nx = [...xi]
-    nx[i] = { ...bp, slotPos, slotX, slotY, posPen: posPenalty(bp.npos, slotPos) }
+    nx[i] = { ...bp, slotPos, slotX, slotY, posPen: penaltyForSet(bp.posSet, slotPos) }
     setXi(nx)
     setBench(bench.filter(p => p.id !== benchId).concat(stripSlot(oldCore)))
   }
@@ -126,8 +133,9 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
             </div>
           )}
 
+          <button className="btn btn-ghost pm-auto" onClick={autoLineup}>✨ Alineación automática</button>
           <button className="btn btn-primary btn-big pm-start" onClick={() => onStart({ formation, tactic, pressing, xi, bench })}>⚽ ¡Al campo!</button>
-          <p className="pm-hint">💡 Toca dos jugadores del campo para intercambiarlos, o un titular y luego un suplente para sustituirlo. El color del borde indica si juega en su posición.</p>
+          <p className="pm-hint">💡 Toca dos jugadores del campo para intercambiarlos, o un titular y luego un suplente para sustituirlo. Muchos jugadores pueden actuar en varias demarcaciones sin penalización (mira su ficha). El color del borde indica si juega en su sitio.</p>
         </div>
 
         {/* Campo con la formación */}
@@ -146,7 +154,7 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
                   className={`slot fit-${fit.key} ${selected ? 'sel' : ''}`}
                   style={{ left: `${p.slotX}%`, top: `${p.slotY}%`, '--pc': POS_COLOR[p.pos] }}
                   onClick={() => clickSlot(i)}
-                  title={`${p.n} — ${SPEC_FULL[p.npos]}${p.posPen > 0 ? ` jugando de ${p.slotPos} (-${p.posPen})` : ''} · energía ${Math.round(p.fit)}%`}
+                  title={`${p.n} — posiciones: ${p.posSet.join(', ')}${p.posPen > 0 ? ` · jugando de ${p.slotPos} (-${p.posPen})` : ` · juega de ${p.slotPos} ✓`} · energía ${Math.round(p.fit)}%`}
                 >
                   <span className="slot-tag">{p.slotPos}</span>
                   <span className="slot-num">{p.num}</span>

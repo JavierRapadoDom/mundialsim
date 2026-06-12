@@ -57,6 +57,8 @@ function curiosities(p, team, squad) {
   const byR = [...squad].sort((a, b) => b.r - a.r)
   const rRank = byR.findIndex(x => x.id === p.id) + 1
   if (rRank === 1) facts.push('👑 El jugador de mayor media del equipo')
+  if (p.posSet && p.posSet.length >= 3) facts.push(`🎯 Comodín total: rinde en ${p.posSet.length} demarcaciones distintas`)
+  else if (p.posSet && p.posSet.length === 2) facts.push(`🔄 Polivalente: juega de ${SPEC_FULL[p.posSet[0]].toLowerCase()} y de ${SPEC_FULL[p.posSet[1]].toLowerCase()}`)
   facts.push(`🏟️ Juega en el ${p.club}`)
   if (p.dev > 0) facts.push(`📈 Ha subido ${p.dev} de media durante este Mundial`)
   return facts
@@ -84,6 +86,11 @@ export default function PlayerCard({ player, team, squad, onClose }) {
             <h2 className="pc-name">{player.n}</h2>
             <div className="pc-sub">{team.flag} {team.name} · #{player.num}</div>
             <div className="pc-role">{SPEC_FULL[player.npos]} · {LINE_LABEL[player.pos]}</div>
+            {player.posSet && player.posSet.length > 1 && (
+              <div className="pc-altpos">
+                🔄 También: {player.posSet.slice(1).map(x => <span key={x} className="pc-altpos-chip">{x}</span>)}
+              </div>
+            )}
           </div>
           <div className="pc-rating">
             <div className="pc-rating-num">{player.r}{player.dev > 0 && <span className="dev-up"> ▲{player.dev}</span>}</div>
