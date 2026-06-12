@@ -4,6 +4,7 @@
 import { TEAMS, TEAM_BY_ID, GROUPS, groupTeams, STADIUMS, FINAL_STADIUM } from '../data/teams.js'
 import { getSquad } from '../data/squads.js'
 import { quickSim, minutesOf } from './match.js'
+import { groupDate, koDate, restDaysFor } from '../data/calendar.js'
 
 export const STAGES = ['groups', 'R32', 'R16', 'QF', 'SF', 'F', 'done']
 export const STAGE_LABEL = {
@@ -22,7 +23,7 @@ export function newTournament(userTeamId) {
       const [a, b, c, d] = groupTeams(g).map(t => t.id)
       const pairs = round === 1 ? [[a, b], [c, d]] : round === 2 ? [[a, c], [d, b]] : [[d, a], [b, c]]
       for (const [h, w] of pairs) {
-        fixtures.push({ id: `G${g}R${round}-${h}`, group: g, round, home: h, away: w, played: false, score: null, scorers: null, stadium: stadiumFor(si++) })
+        fixtures.push({ id: `G${g}R${round}-${h}`, group: g, round, home: h, away: w, played: false, score: null, scorers: null, stadium: stadiumFor(si++), date: groupDate(g, round) })
       }
     }
   }
@@ -82,7 +83,7 @@ function pushNews(t, text) {
 }
 
 function rollInjury(t, p, team, context) {
-  const leve = Math.random() < 0.82
+  const leve = Math.random() < 0.86
   const s = pst(t, p)
   if (leve) {
     s.inj = 1 + (Math.random() < 0.45 ? 1 : 0)
@@ -131,9 +132,9 @@ export function applyMatchEffects(t, m) {
       if (p.injured) {
         rollInjury(t, p, team, 'se retiró lesionado')
       } else if (mins > 0) {
-        // Lesión post-partido: baja probabilidad, crece con la sobrecarga
-        const overload = s.fit < 30 ? 0.035 : s.fit < 50 ? 0.015 : 0
-        if (Math.random() < 0.004 + overload) rollInjury(t, p, team, 'sobrecargado tras el partido')
+        // Lesión post-partido: muy baja probabilidad, crece con la sobrecarga
+        const overload = s.fit < 30 ? 0.014 : s.fit < 50 ? 0.006 : 0
+        if (Math.random() < 0.0016 + overload) rollInjury(t, p, team, 'sobrecargado tras el partido')
       }
       // Progresión de media: los jóvenes con minutos crecen más rápido
       if (mins > 0 && s.dev < DEV_CAP(p.age)) {
@@ -149,11 +150,14 @@ export function applyMatchEffects(t, m) {
 
 const baseOf = (t, p) => p.baseR ?? p.r
 
-// Recuperación entre jornadas: los jóvenes recuperan más rápido que los veteranos
-export function applyRecovery(t) {
+// Recuperación entre rondas según los días de descanso reales del calendario:
+// más descanso y más juventud → mejor recuperación. En las eliminatorias, con
+// los partidos más juntos, la fatiga pasa factura.
+export function applyRecovery(t, restDays) {
+  const days = restDays ?? 5
   for (const [, s] of Object.entries(t.pstate)) {
-    const rec = Math.max(16, Math.min(42, 28 + (30 - (s.age ?? 27)) * 1.1))
-    s.fit = Math.min(100, s.fit + rec)
+    const perDay = Math.max(3.5, Math.min(9, 6.5 + (28 - (s.age ?? 27)) * 0.12))
+    s.fit = Math.min(100, s.fit + Math.max(12, Math.min(100, days * perDay)))
   }
 }
 
@@ -209,7 +213,7 @@ function buildR32(t) {
     }
   }
   return pairs.map(([h, a], i) => ({
-    id: `R32-${i}`, home: h, away: a, played: false, score: null, pens: null, stadium: stadiumFor(i + 3),
+    id: `R32-${i}`, home: h, away: a, played: false, score: null, pens: null, stadium: stadiumFor(i + 3), date: koDate('R32', i),
   }))
 }
 
@@ -222,6 +226,7 @@ function nextRoundFixtures(matches, stageKey) {
       away: winnerOf(matches[i + 1]),
       played: false, score: null, pens: null,
       stadium: stageKey === 'F' ? FINAL_STADIUM : stadiumFor(i * 2 + 5),
+      date: koDate(stageKey, i / 2),
     })
   }
   return out
@@ -269,8 +274,8 @@ export function advance(t) {
   for (const f of matches) {
     if (!f.played) simFixture(t, f, t.stage !== 'groups')
   }
-  // Días de descanso hasta la siguiente ronda
-  applyRecovery(t)
+  // Días de descanso reales hasta la siguiente ronda
+  applyRecovery(t, restDaysFor(t.stage, t.round))
 
   if (t.stage === 'groups') {
     if (t.round < 3) { t.round++; return t }

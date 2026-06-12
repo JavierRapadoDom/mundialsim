@@ -2,7 +2,8 @@
 // Un partido se crea con newMatch() y se avanza con tick(); cada tick es un
 // minuto de juego y devuelve los eventos generados en él.
 
-import { bestXI } from '../data/squads.js'
+import { assignFormation } from '../data/squads.js'
+import { posPenalty } from '../data/positions.js'
 
 export const TACTICS = {
   defensiva: { atk: 0.78, def: 1.18, label: 'Defensiva', icon: '🛡️' },
@@ -47,7 +48,7 @@ const startStamina = p => Math.min(100, 55 + 0.45 * (p.fit ?? 100))
 function prepareSide(team, setup) {
   const { xi, bench } = setup?.xi
     ? { xi: [...setup.xi], bench: [...setup.bench] }
-    : bestXI(setup?.squad ?? [], setup?.formation ?? '4-3-3')
+    : assignFormation(setup?.squad ?? [], setup?.formation ?? '4-3-3')
   return {
     team,
     formation: setup?.formation ?? '4-3-3',
@@ -79,8 +80,10 @@ export function newMatch(homeTeam, awayTeam, homeSetup, awaySetup, opts = {}) {
 
 const onPitch = side => side.players.filter(p => !p.off)
 
+// Rendimiento real: media menos penalización por jugar fuera de su sitio,
+// modulada por la energía que le queda.
 function effRating(p) {
-  return p.r * (0.72 + 0.28 * (p.stamina / 100))
+  return (p.r - (p.posPen ?? 0)) * (0.72 + 0.28 * (p.stamina / 100))
 }
 
 function attackPower(side, oppSide) {
@@ -230,10 +233,10 @@ function discipline(m, sideKey, out) {
     }
   }
 
-  // Lesiones en pleno partido (la fatiga las hace más probables)
+  // Lesiones en pleno partido (la fatiga las hace algo más probables, pero raras)
   const ps2 = onPitch(side)
-  const tiredFactor = ps2.filter(p => p.stamina < 40).length * 0.0012
-  if (rand() < 0.0022 + tiredFactor) {
+  const tiredFactor = ps2.filter(p => p.stamina < 35).length * 0.0004
+  if (rand() < 0.0006 + tiredFactor) {
     const weights = ps2.map(p => (p.stamina < 40 ? 3 : 1))
     const total = weights.reduce((a, b) => a + b, 0)
     let roll2 = rand() * total
@@ -356,6 +359,9 @@ export function doSub(m, sideKey, outId, inId) {
   outP.subbed = true
   outP.exitMin = m.minute
   inP.enterMin = m.minute
+  // El suplente hereda la casilla del que sale (y su posible penalización)
+  inP.slotPos = outP.slotPos
+  inP.posPen = posPenalty(inP.npos, outP.slotPos)
   side.bench = side.bench.filter(p => p.id !== inId)
   side.players.push(inP)
   side.subs--

@@ -4,6 +4,7 @@
 // fuerza del equipo y su experiencia internacional.
 
 import { REAL_SQUADS } from './realSquads.js'
+import { NATURAL_POS, inferSpecific, FORMATION_SLOTS, SPEC_LINE, posPenalty } from './positions.js'
 
 const POS_MAP = { GK: 'POR', DF: 'DEF', MF: 'MED', FW: 'DEL' }
 const POS_ORDER = { POR: 0, DEF: 1, MED: 2, DEL: 3 }
@@ -51,6 +52,14 @@ export function getSquad(team) {
   })
 
   squad.sort((a, b) => POS_ORDER[a.pos] - POS_ORDER[b.pos] || b.r - a.r)
+
+  // Demarcación natural: real para las figuras, inferida (determinista) para el
+  // resto repartiendo roles realistas dentro de cada línea.
+  const lineIdx = { POR: 0, DEF: 0, MED: 0, DEL: 0 }
+  for (const p of squad) {
+    p.npos = NATURAL_POS[p.n] ?? inferSpecific(p.pos, lineIdx[p.pos]++)
+  }
+
   cache[team.id] = squad
   return squad
 }
@@ -80,6 +89,51 @@ export function bestXI(squad, formation = '4-3-3') {
   const bench = squad.filter(p => !xi.includes(p))
   return { xi, bench }
 }
+
+// Coloca el mejor XI en las casillas de la formación, minimizando las
+// penalizaciones posicionales. Cada titular sale con su casilla (slotPos,
+// slotX, slotY) y su penalización para el partido (posPen).
+export function assignFormation(squad, formation = '4-3-3') {
+  const { xi, bench } = bestXI(squad, formation)
+  const slots = (FORMATION_SLOTS[formation] ?? FORMATION_SLOTS['4-3-3']).map((s, idx) => ({ ...s, idx }))
+
+  const place = (slot, p) => { assigned[slot.idx] = { ...p, slotPos: slot.pos, slotX: slot.x, slotY: slot.y, posPen: posPenalty(p.npos, slot.pos) } }
+  const assigned = new Array(slots.length)
+  const pool = new Set(xi)
+
+  // 1) Reparto por líneas, minimizando penalización dentro de cada línea
+  const byLine = { POR: [], DEF: [], MED: [], DEL: [] }
+  for (const s of slots) byLine[SPEC_LINE[s.pos]].push(s)
+  for (const line of ['POR', 'DEF', 'MED', 'DEL']) {
+    const players = xi.filter(p => p.pos === line && pool.has(p))
+    for (const slot of byLine[line]) {
+      let best = null, bestScore = Infinity
+      for (const p of players) {
+        if (!pool.has(p)) continue
+        const score = posPenalty(p.npos, slot.pos) * 100 - p.r
+        if (score < bestScore) { bestScore = score; best = p }
+      }
+      if (best) { place(slot, best); pool.delete(best) }
+    }
+  }
+
+  // 2) Rellena casillas que quedaron vacías (líneas con menos jugadores que
+  // casillas, p. ej. por bajas) con el mejor jugador disponible que quede.
+  for (const slot of slots) {
+    if (assigned[slot.idx]) continue
+    let best = null, bestScore = Infinity
+    for (const p of pool) {
+      const score = posPenalty(p.npos, slot.pos) * 100 - p.r
+      if (score < bestScore) { bestScore = score; best = p }
+    }
+    if (best) { place(slot, best); pool.delete(best) }
+  }
+
+  return { xi: assigned.filter(Boolean), bench }
+}
+
+// Media efectiva (descontando penalización posicional)
+export const effR = p => p.r - (p.posPen ?? 0)
 
 export const avgRating = players =>
   players.length ? Math.round(players.reduce((s, p) => s + p.r, 0) / players.length) : 0

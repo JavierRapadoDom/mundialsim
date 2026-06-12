@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { TEAM_BY_ID, groupTeams } from '../data/teams.js'
 import { getSquad, avgRating, coachOf } from '../data/squads.js'
+import PlayerCard from '../components/PlayerCard.jsx'
 
 const POS_LABEL = { POR: 'Porteros', DEF: 'Defensas', MED: 'Centrocampistas', DEL: 'Delanteros' }
 const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e63946' }
@@ -8,6 +9,7 @@ const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e6394
 export default function TeamDetail({ teamId, go }) {
   const team = TEAM_BY_ID[teamId]
   const squad = useMemo(() => (team ? getSquad(team) : []), [team])
+  const [selected, setSelected] = useState(null)
   if (!team) return <p className="empty">Equipo no encontrado.</p>
 
   const rivals = groupTeams(team.group).filter(t => t.id !== team.id)
@@ -50,13 +52,13 @@ export default function TeamDetail({ teamId, go }) {
         <h2 className="section-title">✨ Figuras del equipo</h2>
         <div className="stars-grid">
           {stars.map((p, i) => (
-            <div className="star-card" key={p.id} style={{ '--c1': team.colors[0], '--c2': team.colors[1], '--d': `${i * 80}ms` }}>
-              <div className="star-pos" style={{ background: POS_COLOR[p.pos] }}>{p.pos}</div>
+            <button className="star-card" key={p.id} style={{ '--c1': team.colors[0], '--c2': team.colors[1], '--d': `${i * 80}ms` }} onClick={() => setSelected(p)}>
+              <div className="star-pos" style={{ background: POS_COLOR[p.pos] }}>{p.npos}</div>
               <div className="star-num">#{p.num}</div>
               <div className="star-name">{p.n} {p.captain && <span className="cap-badge">Ⓒ</span>}</div>
               <div className="star-club">{p.club}</div>
               <div className="star-rating">{p.r}</div>
-            </div>
+            </button>
           ))}
         </div>
       </section>
@@ -68,15 +70,16 @@ export default function TeamDetail({ teamId, go }) {
             <h3 className="squad-pos-title" style={{ color: POS_COLOR[pos] }}>{POS_LABEL[pos]}</h3>
             <table className="squad-table">
               <thead>
-                <tr><th>#</th><th>Jugador</th><th>Club</th><th>Edad</th><th>Int.</th><th>Media</th></tr>
+                <tr><th>#</th><th>Jugador</th><th>Pos.</th><th>Club</th><th>Edad</th><th>Int.</th><th>Media</th></tr>
               </thead>
               <tbody>
                 {squad.filter(p => p.pos === pos).map(p => (
-                  <tr key={p.id} className={p.star ? 'row-star' : ''}>
+                  <tr key={p.id} className={`clickable ${p.star ? 'row-star' : ''}`} onClick={() => setSelected(p)}>
                     <td className="td-num">{p.num}</td>
                     <td className="td-player">
                       {p.n} {p.captain && <span className="cap-badge">Ⓒ</span>} {p.star && <span className="star-mini">★</span>}
                     </td>
+                    <td><span className="npos-chip" style={{ color: POS_COLOR[pos] }}>{p.npos}</span></td>
                     <td className="td-club">{p.club}</td>
                     <td>{p.age}</td>
                     <td className="td-caps">{p.caps}</td>
@@ -99,6 +102,8 @@ export default function TeamDetail({ teamId, go }) {
           🎮 Jugar el Mundial con {team.flag} {team.name}
         </button>
       </div>
+
+      {selected && <PlayerCard player={selected} team={team} squad={squad} onClose={() => setSelected(null)} />}
     </div>
   )
 }

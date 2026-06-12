@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 // Tanda de penaltis interactiva: el usuario elige dónde tira y hacia dónde
 // se lanza su portero. La IA decide al azar (ponderado por calidad).
@@ -95,7 +96,7 @@ export default function Penalties({ m, onDone }) {
     )
   }
 
-  return (
+  return createPortal(
     <div className="pens-overlay">
       <div className="pens-panel">
         <h2 className="pens-title">🥅 TANDA DE PENALTIS</h2>
@@ -152,6 +153,7 @@ export default function Penalties({ m, onDone }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

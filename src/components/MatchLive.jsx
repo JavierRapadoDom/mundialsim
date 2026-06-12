@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { newMatch, tick, doSub, setTactic, setPressing, isOver, TACTICS, PRESSING } from '../engine/match.js'
+import { posPenalty } from '../data/positions.js'
 import Penalties from './Penalties.jsx'
 
 const EVENT_ICON = {
@@ -43,6 +45,36 @@ function PitchSide({ side, top, color }) {
   )
 }
 
+const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e63946' }
+const stamColor = s => (s >= 60 ? 'var(--green)' : s >= 35 ? 'var(--gold)' : 'var(--red)')
+
+function SubRow({ p, onClick, selected, disabled, dim, isBench, slotPos }) {
+  // Penalización si este suplente entrara en la casilla del que sale
+  const pen = isBench && slotPos ? posPenalty(p.npos, slotPos) : 0
+  return (
+    <button className={`sub-row ${selected ? 'sel' : ''} ${dim ? 'dim' : ''} ${p.injured ? 'injured' : ''}`} disabled={disabled} onClick={onClick}>
+      <span className="sub-pos" style={{ background: POS_COLOR[p.pos] }}>{p.npos}</span>
+      <span className="sub-main">
+        <span className="sub-name">{p.n} {p.star && <em className="star-mini">★</em>}{p.captain && <em className="cap-badge">Ⓒ</em>}{p.injured && ' 🚑'}</span>
+        <span className="sub-meta">
+          #{p.num} · {p.age} años
+          {p.goals > 0 && <em className="sub-goal"> · ⚽{p.goals}</em>}
+          {p.assists > 0 && <em> · 🅰️{p.assists}</em>}
+          {p.yc > 0 && <em className="sub-yc"> · 🟨</em>}
+          {isBench && pen > 0 && <em className="sub-pen"> · de {slotPos}: -{pen}</em>}
+        </span>
+      </span>
+      <span className="sub-right">
+        <b className="sub-r">{p.r}</b>
+        <span className="sub-stam" title={`Energía ${Math.round(p.stamina)}%`}>
+          <i><s style={{ width: `${p.stamina}%`, background: stamColor(p.stamina) }} /></i>
+          <em>{Math.round(p.stamina)}%</em>
+        </span>
+      </span>
+    </button>
+  )
+}
+
 function SubsModal({ m, sideKey, onClose, rerender }) {
   const side = m[sideKey]
   const [outP, setOutP] = useState(null)
@@ -50,46 +82,37 @@ function SubsModal({ m, sideKey, onClose, rerender }) {
 
   const confirm = inP => {
     if (!outP) return
-    if (doSub(m, sideKey, outP.id, inP.id)) {
-      setOutP(null)
-      rerender()
-    }
+    if (doSub(m, sideKey, outP.id, inP.id)) { setOutP(null); rerender() }
   }
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">🔁 Sustituciones — quedan {side.subs}</h3>
-        {injured.length > 0 && <p className="modal-warn">🚑 {injured.map(p => p.n).join(', ')} está lesionado: ¡cámbialo!</p>}
+        {injured.length > 0 && <p className="modal-warn">🚑 {injured.map(p => p.n).join(', ')} está lesionado: ¡cámbialo antes de que juegues con uno menos!</p>}
+        <p className="subs-help">Elige quién sale y después quién entra. Verás media, energía, goles y tarjetas de cada uno.</p>
         <div className="subs-cols">
           <div>
-            <h4>En el campo (elige quién sale)</h4>
+            <h4>⬇️ En el campo {outP && <span className="subs-pick">— sale {outP.n.split(' ').slice(-1)[0]}</span>}</h4>
             <div className="pm-list">
               {onPitch(side).map(p => (
-                <button key={p.id} className={`pm-player ${outP?.id === p.id ? 'sel' : ''} ${p.injured ? 'injured' : ''}`} onClick={() => setOutP(p)}>
-                  <span className="pm-pos">{p.pos}</span>
-                  <span className="pm-name">{p.n} {p.injured && '🚑'}</span>
-                  <span className="pm-r">⚡{Math.round(p.stamina)}%</span>
-                </button>
+                <SubRow key={p.id} p={p} selected={outP?.id === p.id} onClick={() => setOutP(p)} />
               ))}
             </div>
           </div>
           <div>
-            <h4>Banquillo (elige quién entra)</h4>
+            <h4>⬆️ Banquillo {outP && `(entra en ${outP.slotPos})`}</h4>
             <div className="pm-list">
               {side.bench.filter(p => !p.off).map(p => (
-                <button key={p.id} className={`pm-player ${!outP ? 'dim' : ''}`} disabled={!outP || side.subs <= 0} onClick={() => confirm(p)}>
-                  <span className="pm-pos">{p.pos}</span>
-                  <span className="pm-name">{p.n} {p.star && '★'}</span>
-                  <span className="pm-r">{p.r}</span>
-                </button>
+                <SubRow key={p.id} p={p} isBench slotPos={outP?.slotPos} dim={!outP} disabled={!outP || side.subs <= 0} onClick={() => confirm(p)} />
               ))}
             </div>
           </div>
         </div>
         <button className="btn btn-ghost" onClick={onClose}>Cerrar</button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

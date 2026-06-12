@@ -8,6 +8,8 @@ import PreMatch from '../components/PreMatch.jsx'
 import MatchLive from '../components/MatchLive.jsx'
 import GroupTables from '../components/GroupTables.jsx'
 import Bracket from '../components/Bracket.jsx'
+import PlayerCard from '../components/PlayerCard.jsx'
+import { fmtDate, fmtDateLong } from '../data/calendar.js'
 
 const SAVE_KEY = 'mundial26_save_v1'
 
@@ -77,7 +79,7 @@ function fitColor(fit) {
   return fit >= 70 ? 'var(--green)' : fit >= 40 ? 'var(--gold)' : 'var(--red)'
 }
 
-function TeamStats({ t, team }) {
+function TeamStats({ t, team, onPlayer }) {
   const squad = effSquad(t, team)
   const avgFit = Math.round(squad.reduce((s, p) => s + p.fit, 0) / squad.length)
   const totalDev = squad.reduce((s, p) => s + p.dev, 0)
@@ -97,21 +99,20 @@ function TeamStats({ t, team }) {
         </div>
       )}
 
+      <p className="subs-help">Toca cualquier jugador para ver su ficha completa.</p>
       <table className="squad-table stats-table">
         <thead>
           <tr>
-            <th>#</th><th>Jugador</th><th>Edad</th><th>Media</th><th>Energía</th>
+            <th>#</th><th>Jugador</th><th>Pos.</th><th>Edad</th><th>Media</th><th>Energía</th>
             <th>PJ</th><th>Min</th><th>⚽</th><th>🅰️</th><th>🟨</th><th>Estado</th>
           </tr>
         </thead>
         <tbody>
           {squad.map(p => (
-            <tr key={p.id} className={p.inj !== 0 || p.sus > 0 ? 'row-out' : p.star ? 'row-star' : ''}>
+            <tr key={p.id} className={`clickable ${p.inj !== 0 || p.sus > 0 ? 'row-out' : p.star ? 'row-star' : ''}`} onClick={() => onPlayer(p)}>
               <td className="td-num">{p.num}</td>
-              <td className="td-player">
-                <span className="pm-pos" style={{ background: POS_COLOR[p.pos] }}>{p.pos}</span> {p.n}
-                {p.captain && <span className="cap-badge"> Ⓒ</span>}
-              </td>
+              <td className="td-player">{p.n}{p.captain && <span className="cap-badge"> Ⓒ</span>}{p.star && <span className="star-mini"> ★</span>}</td>
+              <td><span className="npos-chip" style={{ color: POS_COLOR[p.pos] }}>{p.npos}</span></td>
               <td>{p.age}</td>
               <td className="ts-rating">
                 {p.r}
@@ -166,7 +167,8 @@ export default function Simulator({ go }) {
   const [screen, setScreen] = useState('hub') // hub | prematch | live
   const [setup, setSetup] = useState(null)
   const [lastFixture, setLastFixture] = useState(null)
-  const [tab, setTab] = useState('grupos')
+  const [tab, setTab] = useState('equipo')
+  const [selPlayer, setSelPlayer] = useState(null)
 
   const pick = id => {
     const nt = newTournament(id)
@@ -224,6 +226,7 @@ export default function Simulator({ go }) {
         squad={effSquad(t, userTeam)}
         knockout={knockout}
         stadium={um.stadium}
+        dateLabel={fmtDateLong(um.date)}
         onBack={() => setScreen('hub')}
         onStart={s => { setSetup(s); setScreen('live'); window.scrollTo({ top: 0 }) }}
       />
@@ -283,7 +286,7 @@ export default function Simulator({ go }) {
             <span className="vs">VS</span>
             <span className="nm-team">{TEAM_BY_ID[um.away].flag} {TEAM_BY_ID[um.away].name}</span>
           </div>
-          <div className="nm-stadium">🏟️ {um.stadium}</div>
+          <div className="nm-stadium">🏟️ {um.stadium}{um.date ? ` · 📅 ${fmtDateLong(um.date)}` : ''}</div>
           <button className="btn btn-primary btn-big" onClick={() => setScreen('prematch')}>
             📋 Preparar alineación
           </button>
@@ -308,13 +311,14 @@ export default function Simulator({ go }) {
         <button className={`chip ${tab === 'ronda' ? 'on' : ''}`} onClick={() => setTab('ronda')}>📅 Esta ronda</button>
       </div>
 
-      {tab === 'equipo' && <TeamStats t={t} team={userTeam} />}
+      {tab === 'equipo' && <TeamStats t={t} team={userTeam} onPlayer={setSelPlayer} />}
       {tab === 'grupos' && <GroupTables t={t} />}
       {tab === 'cuadro' && <Bracket t={t} />}
       {tab === 'ronda' && (
         <div className="round-list">
-          {roundMatches.map(f => (
+          {[...roundMatches].sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '')).map(f => (
             <div key={f.id} className={`round-match ${f.home === t.userTeamId || f.away === t.userTeamId ? 'mine' : ''}`}>
+              <span className="rm-date">{fmtDate(f.date)}</span>
               <span className="rm-team">{TEAM_BY_ID[f.home].flag} {TEAM_BY_ID[f.home].name}</span>
               <span className="rm-score">{f.played ? `${f.score[0]} – ${f.score[1]}` : 'vs'}{f.pens && ` (${f.pens[0]}-${f.pens[1]})`}</span>
               <span className="rm-team right">{TEAM_BY_ID[f.away].name} {TEAM_BY_ID[f.away].flag}</span>
@@ -322,6 +326,8 @@ export default function Simulator({ go }) {
           ))}
         </div>
       )}
+
+      {selPlayer && <PlayerCard player={selPlayer} team={userTeam} squad={effSquad(t, userTeam)} onClose={() => setSelPlayer(null)} />}
     </div>
   )
 }
