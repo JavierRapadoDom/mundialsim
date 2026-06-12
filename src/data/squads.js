@@ -96,11 +96,15 @@ export function assignFormation(squad, formation = '4-3-3') {
 
   // Asignación voraz global: ordena todas las parejas (casilla, jugador) por
   // valor efectivo y va fijando las mejores que no choquen.
+  // Al valorar cada pareja, la penalización pesa más (×2.2) que en el partido
+  // real para que el once automático prefiera a un jugador en su sitio antes
+  // que a otro algo mejor pero improvisado. La penalización aplicada al partido
+  // sigue siendo la real (pr.pen).
   const pairs = []
   for (let si = 0; si < slots.length; si++) {
     for (const p of players) {
       const pen = penaltyForSet(p.posSet, slots[si].pos)
-      pairs.push({ si, p, pen, val: (p.r - pen) * fitW(p) })
+      pairs.push({ si, p, pen, val: (p.r - pen * 2.2) * fitW(p) })
     }
   }
   pairs.sort((a, b) => b.val - a.val)

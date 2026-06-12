@@ -133,33 +133,123 @@ export const NATURAL_POS = {
   'Adalberto Carrasquilla': ['MC', 'MCO'], 'Michael Amir Murillo': ['LD', 'ED'], 'José Fajardo': 'DC', 'Orlando Mosquera': 'PT',
 }
 
-// Secundaria conservadora para los jugadores no curados (flancos y mediocampo
-// pueden cubrir su rol contiguo; defensas centrales y delanteros, especialistas).
-const INFER_ALT = {
-  LD: ['MD'], LI: ['MI'], MD: ['LD'], MI: ['LI'],
-  MC: ['MCD'], MCD: ['MC'], MCO: ['MC'],
-  ED: ['MD'], EI: ['MI'],
-  DFC: [], DC: [], PT: [],
+// Demarcaciones reales del resto de convocados (laterales, extremos, pivotes,
+// mediapuntas, interiores…). Lo no listado usa el central por defecto de su
+// línea. Revisado plantilla por plantilla.
+export const NATURAL_POS_EXTRA = {
+  // México
+  'Jorge Sánchez': ['LD', 'DFC'], 'Jesús Gallardo': 'LI', 'Israel Reyes': ['DFC', 'LD'], 'Mateo Chávez': 'LI', 'Orbelín Pineda': ['MCO', 'MC'], 'Luis Romo': ['MCD', 'DFC'], 'Álvaro Fidalgo': ['MCO', 'MC'], 'Érik Lira': 'MCD', 'Obed Vargas': 'MCD', 'Roberto Alvarado': ['ED', 'EI'], 'Alexis Vega': ['EI', 'MCO'], 'César Huerta': 'EI',
+  // República Checa
+  'David Jurásek': 'LI', 'Jaroslav Zelený': 'LI', 'David Douděra': 'LD', 'Lukáš Provod': ['EI', 'MCO'], 'Michal Sadílek': 'MCD', 'Lukáš Červ': 'MCD',
+  // Sudáfrica
+  'Khuliso Mudau': 'LD', 'Aubrey Modiba': 'LI', 'Themba Zwane': ['MCO', 'MC'], 'Sphephelo Sithole': 'MCD', 'Oswin Appollis': 'EI', 'Thapelo Maseko': 'ED', 'Relebohile Mofokeng': ['EI', 'MCO'],
+  // Corea del Sur
+  'Kim Moon-hwan': 'LD', 'Seol Young-woo': 'LD', 'Park Jin-seob': 'LI', 'Hwang In-beom': ['MC', 'MCO'], 'Lee Jae-sung': ['MCO', 'MC'], 'Yang Hyun-jun': ['ED', 'EI'], 'Bae Jun-ho': ['MCO', 'EI'], 'Lee Dong-gyeong': ['MI', 'MCO'],
+  // Canadá
+  'Richie Laryea': ['LD', 'MD'], 'Alistair Johnston': 'LD', 'Liam Millar': ['EI', 'MI'], 'Ismaël Koné': ['MC', 'MCO'], 'Jonathan Osorio': ['MCO', 'MC'], 'Jacob Shaffelburg': 'EI', 'Cyle Larin': 'DC',
+  // Suiza
+  'Silvan Widmer': 'LD', 'Ricardo Rodriguez': 'LI', 'Miro Muheim': 'LI', 'Denis Zakaria': 'MCD', 'Michel Aebischer': ['MC', 'LI'], 'Djibril Sow': 'MC', 'Fabian Rieder': ['MCO', 'MI'], 'Rubén Vargas': ['EI', 'MI'], 'Noah Okafor': ['EI', 'DC'], 'Christian Fassnacht': ['MD', 'MCO'],
+  // Bosnia
+  'Amir Hadžiahmetović': 'MCD', 'Ivan Šunjić': 'MCD', 'Ermin Mahmić': 'MCO', 'Esmir Bajraktarević': ['ED', 'EI'],
+  // Catar
+  'Homam Ahmed': 'LI', 'Lucas Mendes': 'LI', 'Ayoub Al-Oui': 'LD', 'Pedro Miguel': ['LD', 'DFC'], 'Ahmed Fathy': 'MCD', 'Karim Boudiaf': 'MCD', 'Abdulaziz Hatem': ['MD', 'MC'], 'Hassan Al-Haydos': ['MCO', 'ED'], 'Ahmed Alaaeldin': 'ED', 'Edmilson Junior': ['ED', 'MCO'],
+  // Brasil
+  'Danilo Luiz': ['LD', 'DFC'], 'Alex Sandro': 'LI', 'Douglas Santos': 'LI', 'Casemiro': 'MCD', 'Lucas Paquetá': ['MCO', 'MC'], 'Fabinho': 'MCD', 'Danilo Santos': 'MCD', 'Gabriel Martinelli': ['EI', 'DC'], 'Matheus Cunha': ['DC', 'MCO'], 'Luiz Henrique': ['ED', 'EI'], 'Rayan': ['ED', 'DC'],
+  // Marruecos
+  'Noussair Mazraoui': ['LD', 'LI'], 'Zakaria El Ouahdi': 'LD', 'Anass Salah-Eddine': 'LI', 'Sofyan Amrabat': 'MCD', 'Ayyoub Bouaddi': 'MCD', 'Ismael Saibari': ['MCO', 'MC'], 'Chemsdine Talbi': ['ED', 'EI'], 'Gessime Yassine': ['EI', 'MCO'], 'Soufiane Rahimi': ['EI', 'DC'], 'Ayoube Amaimouni': 'ED',
+  // Escocia
+  'Nathan Patterson': 'LD', 'Kieran Tierney': 'LI', 'Anthony Ralston': 'LD', 'Aaron Hickey': ['LD', 'LI'], 'Ryan Christie': ['MCO', 'MD'], 'Ben Gannon-Doak': ['ED', 'EI'], 'Ché Adams': 'DC',
+  // Haití
+  'Carlens Arcus': 'LD', 'Hannes Delcroix': ['DFC', 'LI'], 'Jean-Ricner Bellegarde': ['MC', 'MCO'], 'Carl Sainté': 'MCD', 'Derrick Etienne Jr.': ['ED', 'EI'], 'Ruben Providence': ['ED', 'EI'],
+  // Estados Unidos
+  'Alex Freeman': 'LD', 'Sergiño Dest': ['LD', 'LI'], 'Joe Scally': ['LD', 'LI'], 'Max Arfsten': 'LI', 'Giovanni Reyna': ['MCO', 'MC'], 'Sebastian Berhalter': 'MCD', 'Malik Tillman': ['MCO', 'MC'], 'Cristian Roldan': 'MC', 'Brenden Aaronson': ['MCO', 'EI'], 'Ricardo Pepi': 'DC', 'Timothy Weah': ['ED', 'LD'], 'Alejandro Zendejas': ['ED', 'EI'],
+  // Turquía
+  'Zeki Çelik': 'LD', 'Mert Müldür': ['LD', 'DFC'], 'Eren Elmalı': 'LI', 'Kaan Ayhan': ['DFC', 'MCD'], 'Orkun Kökçü': ['MC', 'MCO'], 'Salih Özcan': 'MCD', 'İsmail Yüksek': 'MCD', 'Kerem Aktürkoğlu': ['EI', 'ED'], 'İrfan Can Kahveci': ['MCO', 'MD'], 'Barış Alper Yılmaz': ['ED', 'DC'], 'Oğuz Aydın': 'ED', 'Yunus Akgün': ['ED', 'EI'], 'Can Uzun': ['MCO', 'DC'],
+  // Australia
+  'Aziz Behich': 'LI', 'Jason Geria': 'LD', 'Jordan Bos': 'LI', "Aiden O'Neill": 'MCD', 'Connor Metcalfe': ['MC', 'MCO'], 'Nestory Irankunda': ['ED', 'EI'], 'Awer Mabil': ['ED', 'EI'], 'Cristian Volpato': ['MCO', 'MD'], 'Ajdin Hrustic': ['MCO', 'MC'], 'Nishan Velupillay': ['ED', 'DC'],
+  // Paraguay
+  'Juan José Cáceres': 'LD', 'Júnior Alonso': ['DFC', 'LI'], 'Ramón Sosa': ['EI', 'ED'], 'Diego Gómez': ['MC', 'MCO'], 'Andrés Cubas': 'MCD', 'Braian Ojeda': 'MCD', 'Maurício': ['MCO', 'MD'], 'Kaku': ['MCO', 'EI'],
+  // Alemania
+  'Nathaniel Brown': 'LI', 'David Raum': 'LI', 'Leon Goretzka': 'MC', 'Leroy Sané': ['ED', 'EI'], 'Felix Nmecha': 'MC', 'Angelo Stiller': 'MCD', 'Aleksandar Pavlović': 'MCD', 'Pascal Groß': ['MC', 'MCO'], 'Nadiem Amiri': ['MCO', 'MC'], 'Kai Havertz': ['DC', 'MCO'], 'Maximilian Beier': ['DC', 'EI'], 'Jamie Leweling': ['ED', 'EI'],
+  // Ecuador
+  'Pervis Estupiñán': 'LI', 'Ángelo Preciado': 'LD', 'Alan Franco': ['MCD', 'DFC'], 'Alan Minda': ['EI', 'MI'], 'Denil Castillo': 'MCD', 'Pedro Vite': ['MCO', 'MC'], 'Gonzalo Plata': ['ED', 'EI'], 'Kevin Rodríguez': 'DC', 'Nilson Angulo': ['EI', 'ED'], 'John Yeboah': 'ED',
+  // Costa de Marfil
+  'Ghislain Konan': 'LI', 'Wilfried Singo': ['LD', 'DFC'], 'Guéla Doué': 'LD', 'Christopher Opéri': 'LI', 'Ibrahim Sangaré': 'MCD', 'Seko Fofana': ['MC', 'MCO'], 'Jean Michaël Seri': 'MC', 'Oumar Diakité': ['DC', 'ED'], 'Nicolas Pépé': ['ED', 'EI'], 'Yan Diomande': 'ED', 'Evann Guessand': ['DC', 'EI'],
+  // Curazao
+  'Joshua Brenet': 'LD', 'Sherel Floranus': ['LD', 'LI'], 'Shurandy Sambo': ['LD', 'LI'], 'Riechedly Bazoer': ['MCD', 'DFC'], 'Leandro Bacuna': ['MC', 'LD'], 'Livano Comenencia': ['LD', 'MD'], 'Brandley Kuwas': ['ED', 'EI'], 'Jearl Margaritha': ['ED', 'EI'], 'Gervane Kastaneer': 'ED', 'Sontje Hansen': ['ED', 'DC'], 'Kenji Gorré': ['MCO', 'EI'],
+  // Países Bajos
+  'Nathan Aké': ['DFC', 'LI'], 'Lutsharel Geertruida': ['LD', 'DFC'], 'Jorrel Hato': ['DFC', 'LI'], 'Mats Wieffer': ['MCD', 'DFC'], 'Marten de Roon': 'MCD', 'Teun Koopmeiners': ['MC', 'MCO'], 'Guus Til': ['MC', 'MCO'], 'Justin Kluivert': ['EI', 'ED'], 'Ryan Gravenberch': 'MC', 'Quinten Timber': 'MC', 'Donyell Malen': ['ED', 'EI'], 'Noa Lang': 'EI', 'Crysencio Summerville': ['EI', 'ED'], 'Wout Weghorst': 'DC',
+  // Japón
+  'Yūto Nagatomo': 'LI', 'Hiroki Itō': ['DFC', 'LI'], 'Junnosuke Suzuki': 'LD', 'Yukinari Sugawara': 'LD', 'Daizen Maeda': ['EI', 'DC'], 'Keito Nakamura': ['EI', 'ED'], 'Ao Tanaka': 'MC', 'Kaishū Sano': 'MCD', 'Yuito Suzuki': ['MCO', 'MC'], 'Shuto Machino': ['DC', 'EI'], 'Kento Shiogai': 'ED',
+  // Suecia
+  'Gabriel Gudmundsson': 'LI', 'Daniel Svensson': ['LI', 'LD'], 'Eric Smith': ['DFC', 'MCD'], 'Jesper Karlström': 'MCD', 'Yasin Ayari': ['MC', 'MCO'], 'Mattias Svanberg': 'MC', 'Ken Sema': ['MI', 'LI'], 'Benjamin Nygren': ['MCO', 'ED'], 'Taha Ali': ['ED', 'EI'],
+  // Túnez
+  'Ali Abdi': 'LI', 'Mortadha Ben Ouanes': 'LD', 'Yan Valery': 'LD', 'Ellyes Skhiri': 'MCD', 'Ismaël Gharbi': ['MCO', 'MC'], 'Rani Khedira': 'MCD', 'Sebastian Tounekti': ['EI', 'ED'], 'Hazem Mastouri': ['EI', 'ED'], 'Elias Saad': ['EI', 'ED'], 'Firas Chaouat': 'DC',
+  // Bélgica
+  'Thomas Meunier': 'LD', 'Timothy Castagne': ['LD', 'LI'], 'Maxim De Cuyper': 'LI', 'Zeno Debast': 'DFC', 'Joaquin Seys': ['LI', 'LD'], 'Axel Witsel': ['MCD', 'DFC'], 'Youri Tielemans': 'MC', 'Hans Vanaken': ['MCO', 'MC'], 'Nicolas Raskin': 'MCD', 'Alexis Saelemaekers': ['MD', 'ED'], 'Diego Moreira': ['EI', 'LI'], 'Leandro Trossard': ['EI', 'DC'], 'Dodi Lukébakio': ['ED', 'EI'], 'Charles De Ketelaere': ['MCO', 'DC'], 'Matias Fernandez-Pardo': 'EI',
+  // Egipto
+  'Mohamed Hany': 'LD', 'Ahmed Fatouh': 'LI', 'Karim Hafez': 'LI', 'Emam Ashour': ['MCO', 'MC'], 'Marwan Attia': 'MCD', 'Hamdy Fathy': 'MCD', 'Ibrahim Adel': ['ED', 'MCO'], 'Haissem Hassan': ['ED', 'EI'],
+  // Irán
+  'Ehsan Hajsafi': 'LI', 'Milad Mohammadi': 'LI', 'Ramin Rezaeian': 'LD', 'Saleh Hardani': 'LD', 'Saman Ghoddos': ['MCO', 'MC'], 'Rouzbeh Cheshmi': 'MCD', 'Mehdi Torabi': ['MC', 'ED'], 'Mohammad Mohebi': ['ED', 'EI'], 'Amirhossein Hosseinzadeh': ['EI', 'ED'], 'Mehdi Ghayedi': ['EI', 'ED'],
+  // Nueva Zelanda
+  'Francis de Vries': 'LI', 'Tim Payne': ['LD', 'DFC'], 'Michael Boxall': 'DFC', 'Elijah Just': ['EI', 'MI'], 'Sarpreet Singh': ['MCO', 'MC'], 'Ben Old': ['MCO', 'ED'], 'Alex Rufer': 'MCD', 'Joe Bell': 'MCD', 'Ryan Thomas': ['MCO', 'MD'], 'Kosta Barbarouses': ['ED', 'EI'],
+  // España
+  'Eric García': ['DFC', 'LD'], 'Marcos Llorente': ['LD', 'MC'], 'Marc Cucurella': 'LI', 'Pedro Porro': 'LD', 'Marc Pubill': 'LD', 'Álex Grimaldo': 'LI', 'Mikel Merino': ['MC', 'MCO'], 'Gavi': ['MCO', 'MC'], 'Martín Zubimendi': 'MCD', 'Álex Baena': ['MCO', 'EI'], 'Ferran Torres': ['DC', 'EI'], 'Borja Iglesias': 'DC', 'Yéremy Pino': ['ED', 'EI'],
+  // Uruguay
+  'Matías Viña': 'LI', 'Guillermo Varela': 'LD', 'Mathías Olivera': 'LI', 'Giorgian de Arrascaeta': ['MCO', 'MC'], 'Maximiliano Araújo': ['MI', 'EI'], 'Nicolás de la Cruz': ['MCO', 'MC'], 'Joaquín Piquerez': 'LI', 'Rodrigo Zalazar': ['MCO', 'MC'], 'Agustín Canobbio': ['ED', 'MD'], 'Juan Manuel Sanabria': 'LI', 'Brian Rodríguez': ['ED', 'EI'], 'Facundo Pellistri': 'ED',
+  // Arabia Saudí
+  'Saud Abdulhamid': 'LD', 'Jehad Thakri': 'LD', 'Mohammed Abu Al-Shamat': 'LI', 'Moteb Al-Harbi': 'LD', 'Nasser Al-Dawsari': ['MC', 'EI'], 'Musab Al-Juwayr': ['MCO', 'MC'], 'Abdullah Al-Khaibari': 'MCD', 'Ziyad Al-Johani': ['MD', 'ED'], 'Abdullah Al-Hamdan': ['DC', 'EI'], 'Sultan Mandash': ['ED', 'EI'], 'Khalid Al-Ghannam': ['EI', 'MCO'],
+  // Cabo Verde
+  'Stopira': ['LI', 'DFC'], 'Sidny Lopes Cabral': 'LI', 'Steven Moreira': 'LD', 'Wagner Pina': 'LD', 'Garry Rodrigues': ['ED', 'EI'], 'Kevin Pina': ['EI', 'MI'], 'João Paulo': 'MCD', 'Willy Semedo': ['MCO', 'ED'], 'Jovane Cabral': ['EI', 'DC'], 'Yannick Semedo': 'MCO', 'Telmo Arcanjo': ['MCO', 'MC'], 'Dailon Livramento': ['ED', 'DC'], 'Gilson Benchimol': 'EI',
+  // Francia
+  'Lucas Digne': 'LI', 'Jules Koundé': ['LD', 'DFC'], 'Théo Hernandez': 'LI', 'Lucas Hernandez': ['LI', 'DFC'], 'Malo Gusto': 'LD', "N'Golo Kanté": 'MCD', 'Adrien Rabiot': ['MC', 'MCO'], 'Manu Koné': 'MC', 'Warren Zaïre-Emery': 'MC', 'Rayan Cherki': ['MCO', 'ED'], 'Maghnes Akliouche': ['MCO', 'ED'], 'Marcus Thuram': ['DC', 'ED'], 'Bradley Barcola': ['EI', 'ED'],
+  // Noruega
+  'David Møller Wolfe': 'LI', 'Fredrik André Bjørkan': 'LI', 'Marcus Holmgren Pedersen': 'LD', 'Patrick Berg': 'MCD', 'Sander Berge': ['MC', 'MCD'], 'Kristian Thorstvedt': ['MC', 'MCO'], 'Andreas Schjelderup': ['EI', 'MCO'], 'Jens Petter Hauge': ['EI', 'ED'], 'Fredrik Aursnes': ['MC', 'LD'], 'Thelo Aasgaard': ['MCO', 'MC'], 'Oscar Bobb': ['ED', 'EI'], 'Jørgen Strand Larsen': 'DC', 'Julian Ryerson': ['LD', 'LI'],
+  // Senegal
+  'Krépin Diatta': ['LD', 'ED'], 'Antoine Mendy': 'LD', 'Ismail Jakobs': 'LI', 'El Hadji Malick Diouf': 'LI', 'Idrissa Gueye': 'MCD', 'Habib Diarra': ['MC', 'MCO'], 'Pathé Ciss': 'MCD', 'Pape Gueye': 'MCD', 'Lamine Camara': 'MC', 'Ismaïla Sarr': ['ED', 'EI'], 'Assane Diao': ['EI', 'ED'],
+  // Irak
+  'Hussein Ali': ['LI', 'DFC'], 'Akam Hashim': 'LD', 'Mustafa Saadoon': 'LI', 'Ibrahim Bayesh': ['MCO', 'MC'], 'Youssef Amyn': ['ED', 'EI'], 'Amir Al-Ammari': 'MC', 'Kevin Yakob': ['MCO', 'ED'], 'Zaid Ismail': 'MCD', 'Mohanad Ali': 'DC', 'Ahmed Qasem': ['ED', 'EI'], 'Ali Jasim': ['MCO', 'EI'],
+  // Argentina
+  'Nicolás Tagliafico': 'LI', 'Gonzalo Montiel': 'LD', 'Lisandro Martínez': ['DFC', 'LI'], 'Nahuel Molina': 'LD', 'Facundo Medina': ['DFC', 'LI'], 'Leandro Paredes': 'MCD', 'Rodrigo De Paul': ['MC', 'MD'], 'Giovani Lo Celso': ['MCO', 'MC'], 'Exequiel Palacios': 'MC', 'Nicolás González': ['EI', 'ED'], 'Valentín Barco': 'LI', 'Giuliano Simeone': ['ED', 'DC'], 'Nico Paz': ['MCO', 'MC'], 'Thiago Almada': ['MCO', 'EI'],
+  // Austria
+  'Stefan Posch': ['LD', 'DFC'], 'Phillipp Mwene': ['LI', 'LD'], 'Florian Grillitsch': 'MCD', 'Romano Schmid': ['MCO', 'MD'], 'Alexander Prass': ['LI', 'MI'], 'Nicolas Seiwald': 'MCD', 'Paul Wanner': ['MCO', 'MC'], 'Alessandro Schöpf': 'MCO', 'Carney Chukwuemeka': ['MC', 'MCO'], 'Patrick Wimmer': ['EI', 'ED'],
+  // Argelia
+  'Ramy Bensebaini': ['LI', 'DFC'], 'Jaouen Hadjam': 'LI', 'Rafik Belghali': 'LD', 'Ramiz Zerrouki': 'MCD', 'Hicham Boudaoui': ['MC', 'MCO'], 'Nabil Bentaleb': 'MCD', 'Ibrahim Maza': ['MCO', 'MC'], 'Houssem Aouar': ['MCO', 'MC'], 'Farès Chaïbi': ['MCO', 'ED'], 'Farès Ghedjemis': ['EI', 'DC'], 'Adil Boulbina': 'ED', 'Anis Hadj Moussa': ['ED', 'EI'],
+  // Jordania
+  'Abdallah Nasib': 'LD', 'Mohammad Abu Hashish': 'LI', 'Salim Obaid': 'LD', 'Husam Abu Dahab': 'LI', 'Ibrahim Sadeh': 'MCD', 'Noor Al-Rawabdeh': ['MCO', 'MC'], 'Amer Jamous': ['MD', 'MC'], 'Mohannad Abu Taha': 'MI', 'Ali Azaizeh': ['ED', 'MCO'], 'Odeh Al-Fakhouri': ['EI', 'ED'],
+  // Portugal
+  'João Cancelo': ['LD', 'LI'], 'Nélson Semedo': 'LD', 'Gonçalo Inácio': ['DFC', 'LI'], 'Nuno Mendes': 'LI', 'Diogo Dalot': ['LD', 'LI'], 'Renato Veiga': ['DFC', 'LI'], 'Samú Costa': 'MCD', 'Rúben Neves': 'MCD', 'João Neves': ['MC', 'MCD'], 'Matheus Nunes': ['MC', 'LD'], 'João Félix': ['MCO', 'EI'], 'Gonçalo Ramos': 'DC', 'Pedro Neto': ['ED', 'EI'], 'Gonçalo Guedes': ['EI', 'DC'], 'Francisco Trincão': ['ED', 'EI'], 'Francisco Conceição': ['ED', 'EI'],
+  // Colombia
+  'Santiago Arias': 'LD', 'Gustavo Puerta': ['MCD', 'LD'], 'Johan Mojica': 'LI', 'Deiver Machado': 'LI', 'Kevin Castaño': 'MCD', 'Jorge Carrascal': ['MCO', 'EI'], 'Juan Fernando Quintero': ['MCO', 'MC'], 'Jhon Arias': ['ED', 'MCO'], 'Juan Portilla': 'MCD', 'Jhon Córdoba': 'DC', 'Cucho Hernández': ['DC', 'EI'], 'Jaminton Campaz': ['EI', 'MCO'], 'Andrés Gómez': ['ED', 'EI'],
+  // RD del Congo
+  'Joris Kayembe': ['LI', 'LD'], 'Gédéon Kalulu': 'LD', 'Arthur Masuaku': 'LI', 'Aaron Wan-Bissaka': 'LD', 'Charles Pickel': 'MCD', "Ngal'ayel Mukau": 'MC', 'Samuel Moutoussamy': 'MC', 'Nathanaël Mbuku': ['EI', 'MCO'], 'Théo Bongonda': ['EI', 'ED'], 'Edo Kayembe': 'MCD', 'Noah Sadiki': 'MCD', 'Fiston Mayele': ['DC', 'ED'], 'Gaël Kakuta': ['MCO', 'EI'], 'Meschak Elia': ['ED', 'EI'],
+  // Uzbekistán
+  'Farrukh Sayfiev': 'LD', 'Khojiakbar Alijonov': 'LD', 'Jakhongir Urozov': 'LI', 'Otabek Shukurov': 'MCD', 'Odiljon Hamrobekov': ['MC', 'MCO'], 'Jaloliddin Masharipov': ['MCO', 'EI'], 'Jamshid Iskanderov': ['MCO', 'MD'], 'Akmal Mozgovoy': 'MI', 'Oston Urunov': ['MCO', 'EI'], 'Dostonbek Khamdamov': ['EI', 'ED'], 'Igor Sergeev': 'DC',
+  // Inglaterra
+  'Ezri Konsa': ['DFC', 'LD'], 'Reece James': 'LD', "Nico O'Reilly": ['LI', 'DFC'], 'Dan Burn': 'DFC', 'Djed Spence': ['LI', 'LD'], 'Tino Livramento': ['LD', 'LI'], 'Jordan Henderson': 'MC', 'Morgan Rogers': ['MCO', 'MC'], 'Elliot Anderson': 'MC', 'Eberechi Eze': ['MCO', 'EI'], 'Kobbie Mainoo': 'MC', 'Ivan Toney': 'DC', 'Anthony Gordon': ['EI', 'ED'], 'Ollie Watkins': 'DC', 'Noni Madueke': ['ED', 'EI'],
+  // Croacia
+  'Josip Stanišić': ['LD', 'DFC'], 'Kristijan Jakić': ['DFC', 'LD'], 'Mario Pašalić': ['MCO', 'MC'], 'Nikola Vlašić': ['MCO', 'MC'], 'Martin Baturina': ['MCO', 'MC'], 'Luka Sučić': ['MC', 'MCO'], 'Nikola Moro': 'MCD', 'Toni Fruk': 'MCO', 'Petar Sučić': 'MC', 'Ivan Perišić': ['EI', 'LI'], 'Marco Pašalić': ['ED', 'EI'], 'Igor Matanović': ['DC', 'EI'],
+  // Ghana
+  'Abdul Rahman Baba': 'LI', 'Gideon Mensah': 'LI', 'Alidu Seidu': ['LD', 'DFC'], 'Marvin Senaya': 'LD', 'Elisha Owusu': 'MCD', 'Caleb Yirenkyi': 'MC', 'Kwasi Sibo': 'MCD', 'Augustine Boakye': ['ED', 'MCO'], 'Abdul Fatawu': ['ED', 'EI'], 'Prince Kwabena Adu': 'EI', 'Ernest Nuamah': ['EI', 'ED'], 'Christopher Bonsu Baah': ['ED', 'DC'],
+  // Panamá
+  'Andrés Andrade': ['DFC', 'MCD'], 'César Blackman': 'LD', 'Eric Davis': 'LI', 'Carlos Harvey': ['MCD', 'MC'], 'Yoel Bárcenas': ['MD', 'MCO'], 'César Yanis': ['ED', 'MCO'], 'Alberto Quintero': ['MD', 'ED'], 'Aníbal Godoy': 'MCD', 'Cristian Martínez': ['MI', 'MCO'], 'José Luis Rodríguez': ['EI', 'ED'], 'Ismael Díaz': ['MCO', 'DC'], 'Cecilio Waterman': 'DC', 'Tomás Rodríguez': 'EI',
 }
 
-// Patrón determinista para inferir la demarcación de jugadores sin curar
-const INFER = {
-  DEF: ['DFC', 'DFC', 'LD', 'LI', 'DFC', 'LD', 'LI', 'DFC', 'DFC'],
-  MED: ['MC', 'MCD', 'MCO', 'MC', 'MD', 'MI', 'MCD', 'MC', 'MCO'],
-  DEL: ['DC', 'ED', 'EI', 'DC', 'ED', 'EI', 'DC'],
-}
+// Por defecto, un jugador no curado ocupa la posición CENTRAL de su línea (lo
+// más habitual: central, mediocentro o delantero centro). Los laterales,
+// extremos, interiores, pivotes y mediapuntas van curados en NATURAL_POS_EXTRA.
+const INFER_DEFAULT = { POR: 'PT', DEF: 'DFC', MED: 'MC', DEL: 'DC' }
+const INFER_ALT = { PT: [], DFC: [], MC: ['MCD'], DC: [] }
 
-export function inferSpecific(generalPos, idxInLine) {
-  if (generalPos === 'POR') return 'PT'
-  const arr = INFER[generalPos]
-  return arr[idxInLine % arr.length]
+export function inferSpecific(generalPos) {
+  return INFER_DEFAULT[generalPos] ?? 'MC'
 }
 
 // Conjunto de demarcaciones de un jugador (principal primero)
-export function posSetFor(name, generalPos, idxInLine) {
-  const entry = NATURAL_POS[name]
+export function posSetFor(name, generalPos) {
+  const entry = NATURAL_POS[name] ?? NATURAL_POS_EXTRA[name]
   if (entry) return Array.isArray(entry) ? entry : [entry]
-  const inf = inferSpecific(generalPos, idxInLine)
+  const inf = inferSpecific(generalPos)
   return [inf, ...(INFER_ALT[inf] || [])]
 }
 
