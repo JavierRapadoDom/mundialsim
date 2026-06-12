@@ -53,7 +53,13 @@ export default function Penalties({ m, onDone }) {
     const side = nextSide
     const t = taker(side)
     const gk = keeperOf(m[side === 'home' ? 'away' : 'home'])
-    const result = resolveKick(dir, dive, t, gk)
+    let result = resolveKick(dir, dive, t, gk)
+    // Temple desde los once metros: con la moral alta, tu lanzador mantiene la
+    // sangre fría y a veces convierte un lanzamiento que parecía parado.
+    if (side === m.userSide && result === 'save') {
+      const edge = Math.max(0, (m[m.userSide]?.moraleMod ?? 1) - 1)
+      if (Math.random() < edge * 1.6) result = 'goal'
+    }
     setFlash({ side, result, taker: t, gk })
     setWaiting(true)
     setTimeout(() => {

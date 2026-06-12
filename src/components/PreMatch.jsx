@@ -7,11 +7,32 @@ const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e6394
 const fitColor = fit => (fit >= 70 ? 'var(--green)' : fit >= 40 ? 'var(--gold)' : 'var(--red)')
 const lastName = n => n.split(' ').slice(-1)[0]
 
-export default function PreMatch({ team, opponent, squad, knockout, stadium, dateLabel, onStart, onBack }) {
+// Charlas de vestuario: el tono ideal depende de si eres favorito o inferior.
+const TALKS = {
+  arenga: { icon: '📣', label: 'Arenga', desc: '«¡Salid a comeros el campo!»' },
+  confianza: { icon: '🧊', label: 'Confianza', desc: '«Tranquilos, sabéis jugar a esto»' },
+  foco: { icon: '🎯', label: 'Exigencia', desc: '«Máxima concentración, sin relajarse»' },
+}
+// Efecto de cada tono según el contexto (+rendimiento si aciertas)
+function talkEffect(tone, role) {
+  const table = {
+    underdog: { arenga: 0.05, confianza: 0.02, foco: -0.015 },
+    even: { confianza: 0.05, arenga: 0.025, foco: 0.025 },
+    favorite: { foco: 0.05, confianza: 0.02, arenga: -0.01 },
+  }
+  return table[role][tone] ?? 0
+}
+
+export default function PreMatch({ team, opponent, squad, knockout, stadium, dateLabel, morale = 62, baseMoraleMod = 1, onStart, onBack }) {
   const available = useMemo(() => squad.filter(p => p.inj === 0 && p.sus === 0), [squad])
   const out = useMemo(() => squad.filter(p => p.inj !== 0 || p.sus > 0), [squad])
+  const ratingGap = opponent.rating - team.rating
+  const role = ratingGap >= 5 ? 'underdog' : ratingGap <= -5 ? 'favorite' : 'even'
+  const [talk, setTalk] = useState(null)
+  const talkMod = talk ? talkEffect(talk, role) : 0
+  const finalMoraleMod = Math.max(0.9, Math.min(1.12, baseMoraleMod + talkMod))
   const [formation, setFormation] = useState('4-3-3')
-  const [tactic, setTactic] = useState('equilibrada')
+  const [tactic, setTactic] = useState(role === 'underdog' ? 'cerrojo' : 'equilibrada')
   const [pressing, setPressing] = useState('media')
   const initial = useMemo(() => assignFormation(available, formation), [available, formation])
   const [xi, setXi] = useState(initial.xi)
@@ -80,9 +101,33 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
         </p>
       </div>
 
+      {role === 'underdog' && (
+        <div className="pm-tip">
+          🐲 <b>Eres claramente inferior sobre el papel.</b> El plan <b>🚌 Muro y contra</b> y una buena <b>arenga</b> son tu mejor vía para dar la campanada y llevarlos a los penaltis.
+        </div>
+      )}
+
       <div className="pm-grid2">
         {/* Ajustes */}
         <div className="pm-col">
+          <h3 className="pm-title">Charla de vestuario</h3>
+          <div className="chips">
+            {Object.entries(TALKS).map(([k, v]) => {
+              const eff = talkEffect(k, role)
+              return (
+                <button key={k} className={`chip ${talk === k ? 'on' : ''}`} onClick={() => setTalk(talk === k ? null : k)} title={v.desc}>
+                  {v.icon} {v.label}
+                </button>
+              )
+            })}
+          </div>
+          {talk && (
+            <p className={`talk-fx ${talkMod > 0.03 ? 'good' : talkMod > 0 ? 'ok' : 'bad'}`}>
+              {TALKS[talk].desc} — {talkMod > 0.03 ? '🔥 el equipo salta enchufado' : talkMod > 0 ? '👍 buen ambiente' : '😬 no era el mensaje, se tensan'}
+              {` (${talkMod >= 0 ? '+' : ''}${Math.round(talkMod * 100)}% rendimiento)`}
+            </p>
+          )}
+
           <h3 className="pm-title">Formación</h3>
           <div className="chips">
             {Object.keys(FORMATIONS).map(f => (
@@ -93,7 +138,7 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
           <h3 className="pm-title">Mentalidad</h3>
           <div className="chips">
             {Object.entries(TACTICS).map(([k, v]) => (
-              <button key={k} className={`chip ${tactic === k ? 'on' : ''}`} onClick={() => setTactic(k)}>{v.icon} {v.label}</button>
+              <button key={k} className={`chip ${tactic === k ? 'on' : ''} ${k === 'cerrojo' ? 'chip-bus' : ''}`} onClick={() => setTactic(k)} title={k === 'cerrojo' ? 'Te atrincheras y sales a la contra: concedes pocas ocasiones (más aún contra rivales fuertes) y las tuyas son letales. Ideal para llevar a un grande a los penaltis.' : ''}>{v.icon} {v.label}</button>
             ))}
           </div>
 
@@ -134,7 +179,7 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
           )}
 
           <button className="btn btn-ghost pm-auto" onClick={autoLineup}>✨ Alineación automática</button>
-          <button className="btn btn-primary btn-big pm-start" onClick={() => onStart({ formation, tactic, pressing, xi, bench })}>⚽ ¡Al campo!</button>
+          <button className="btn btn-primary btn-big pm-start" onClick={() => onStart({ formation, tactic, pressing, xi, bench, moraleMod: finalMoraleMod })}>⚽ ¡Al campo!</button>
           <p className="pm-hint">💡 Toca dos jugadores del campo para intercambiarlos, o un titular y luego un suplente para sustituirlo. Muchos jugadores pueden actuar en varias demarcaciones sin penalización (mira su ficha). El color del borde indica si juega en su sitio.</p>
         </div>
 

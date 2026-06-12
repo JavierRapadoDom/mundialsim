@@ -3,6 +3,7 @@ import { TEAMS, TEAM_BY_ID, GROUPS, groupTeams } from '../data/teams.js'
 import {
   newTournament, currentMatches, userMatch, recordUserResult, advance,
   simulateToEnd, winnerOf, STAGE_LABEL, effSquad, availableSquad, applyMatchEffects,
+  moraleMod, moraleLabel, updateUserMorale,
 } from '../engine/tournament.js'
 import PreMatch from '../components/PreMatch.jsx'
 import MatchLive from '../components/MatchLive.jsx'
@@ -23,6 +24,7 @@ const load = () => {
     // Migración de partidas previas al estado de jugadores
     t.pstate ??= {}
     t.news ??= []
+    t.morale ??= 62
     return t
   } catch { return null }
 }
@@ -203,6 +205,7 @@ export default function Simulator({ go }) {
         knockout={knockout} stadium={um.stadium}
         onFinish={result => {
           recordUserResult(t, um, result)
+          updateUserMorale(t, um)
           applyMatchEffects(t, result.match)
           const nt = advance(structuredClone(t))
           save(nt)
@@ -227,6 +230,8 @@ export default function Simulator({ go }) {
         knockout={knockout}
         stadium={um.stadium}
         dateLabel={fmtDateLong(um.date)}
+        morale={t.morale}
+        baseMoraleMod={moraleMod(t.morale)}
         onBack={() => setScreen('hub')}
         onStart={s => { setSetup(s); setScreen('live'); window.scrollTo({ top: 0 }) }}
       />
@@ -274,6 +279,14 @@ export default function Simulator({ go }) {
           {t.stage === 'groups' && <div className="hub-round">Jornada {t.round} de 3</div>}
         </div>
         <button className="btn btn-ghost" onClick={reset}>🗑️ Abandonar</button>
+      </div>
+
+      <div className="morale-bar">
+        <span className="morale-lab">🔥 Moral del vestuario</span>
+        <div className="morale-track">
+          <div className="morale-fill" style={{ width: `${t.morale}%`, background: t.morale >= 70 ? 'var(--green)' : t.morale >= 50 ? 'var(--gold)' : 'var(--red)' }} />
+        </div>
+        <span className="morale-val">{moraleLabel(t.morale)} · {Math.round(t.morale)}</span>
       </div>
 
       <ResultBanner fixture={lastFixture} userTeamId={t.userTeamId} />

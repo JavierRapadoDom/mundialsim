@@ -616,6 +616,27 @@ table { border-collapse: collapse; }
 .clickable:hover { background: rgba(255, 255, 255, 0.05); }
 .pm-warn { color: #ffb38a; background: rgba(244, 162, 97, 0.12); padding: 9px 12px; border-radius: 10px; font-size: 13px; margin-top: 12px; }
 .pm-auto { width: 100%; margin-top: 18px; justify-content: center; }
+
+/* ───────── MORAL Y CHARLAS ───────── */
+.morale-bar { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: var(--radius); background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border); margin-bottom: 16px; }
+.morale-lab { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.morale-track { flex: 1; height: 10px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.morale-fill { height: 100%; border-radius: 99px; transition: width 0.5s, background 0.5s; }
+.morale-val { font-family: var(--font-display); font-weight: 800; font-size: 14px; white-space: nowrap; }
+
+.pm-tip { padding: 12px 16px; border-radius: var(--radius); background: rgba(255, 209, 102, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.35); font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+.talk-fx { font-size: 13px; margin-top: 8px; padding: 8px 12px; border-radius: 10px; }
+.talk-fx.good { background: rgba(45, 198, 83, 0.13); color: #8ef0ad; }
+.talk-fx.ok { background: rgba(255, 209, 102, 0.1); color: var(--gold); }
+.talk-fx.bad { background: rgba(230, 57, 70, 0.12); color: #ff9aa3; }
+.chip.chip-bus.on { background: linear-gradient(135deg, rgba(230, 57, 70, 0.4), rgba(244, 162, 97, 0.35)); box-shadow: inset 0 0 0 1px rgba(244, 162, 97, 0.6); }
+
+.ht-modal { max-width: 480px; text-align: center; }
+.ht-opts { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 8px; }
+.ht-opt { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border); text-align: left; font-weight: 600; transition: all 0.15s; }
+.ht-opt:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--gold); }
+.ht-icon { font-size: 24px; }
+.ht-label { font-size: 15px; }
 .pc-altpos { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; font-size: 12px; color: var(--muted); }
 .pc-altpos-chip { font-family: var(--font-display); font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px var(--card-border); color: var(--text); }
 

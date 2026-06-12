@@ -6,6 +6,7 @@ import { assignFormation } from '../data/squads.js'
 import { penaltyForSet } from '../data/positions.js'
 
 export const TACTICS = {
+  cerrojo: { atk: 0.66, def: 1.32, label: 'Muro y contra', icon: '🚌', counter: 1.4 },
   defensiva: { atk: 0.78, def: 1.18, label: 'Defensiva', icon: '🛡️' },
   equilibrada: { atk: 1, def: 1, label: 'Equilibrada', icon: '⚖️' },
   ofensiva: { atk: 1.25, def: 0.82, label: 'Ofensiva', icon: '⚔️' },
@@ -54,6 +55,8 @@ function prepareSide(team, setup) {
     formation: setup?.formation ?? '4-3-3',
     tactic: setup?.tactic ?? 'equilibrada',
     pressing: setup?.pressing ?? 'media',
+    moraleMod: setup?.moraleMod ?? 1, // <1 desanimado, >1 enchufado (charlas + moral)
+    htTalk: false, // ¿ya se dio la charla del descanso?
     players: xi.map(p => ({ ...p, stamina: startStamina(p), yc: 0, off: false, goals: 0, assists: 0, enterMin: 0, exitMin: null })),
     bench: bench.map(p => ({ ...p, stamina: startStamina(p), yc: 0, off: false, goals: 0, assists: 0, enterMin: null, exitMin: null })),
     subs: 5,
@@ -95,10 +98,10 @@ function attackPower(side, oppSide) {
     Math.max(1, att.length + mid.length * 0.6)
   const menMod = ps.length / 11
   const oppPress = oppSide ? PRESSING[oppSide.pressing].oppAtk : 1
-  return base * TACTICS[side.tactic].atk * oppPress * menMod * menMod
+  return base * TACTICS[side.tactic].atk * oppPress * menMod * menMod * (side.moraleMod ?? 1)
 }
 
-function defensePower(side) {
+function defensePower(side, oppSide) {
   const ps = onPitch(side)
   const def = ps.filter(p => p.pos === 'DEF')
   const gk = ps.find(p => p.pos === 'POR')
@@ -106,7 +109,14 @@ function defensePower(side) {
   const base =
     (def.reduce((s, p) => s + effRating(p), 0) + (gk ? effRating(gk) * 0.8 : 0) + mid.reduce((s, p) => s + effRating(p) * 0.35, 0)) /
     Math.max(1, def.length + (gk ? 0.8 : 0) + mid.length * 0.35)
-  return base * TACTICS[side.tactic].def * PRESSING[side.pressing].def * (ps.length / 11)
+  // El "muro y contra" defiende aún mejor cuanto más fuerte es el rival: es la
+  // resistencia del modesto que se atrinchera ante un grande.
+  let defMod = TACTICS[side.tactic].def
+  if (side.tactic === 'cerrojo' && oppSide) {
+    const gap = (oppSide.team?.rating ?? 75) - (side.team?.rating ?? 75)
+    defMod += Math.min(0.3, Math.max(0, gap) * 0.013)
+  }
+  return base * defMod * PRESSING[side.pressing].def * (ps.length / 11) * (side.moraleMod ?? 1)
 }
 
 const keeper = side => onPitch(side).find(p => p.pos === 'POR')
@@ -160,7 +170,10 @@ function resolveChance(m, atkKey, out) {
 
   const gkQ = gk ? effRating(gk) : 60
   let pGoal = 0.26 * (effRating(shooter) / 85) * (82 / gkQ)
-  pGoal = Math.max(0.08, Math.min(0.55, pGoal))
+  // Con "muro y contra" se generan pocas ocasiones, pero las contras son más
+  // letales (jugadores lanzados al espacio).
+  if (atkSide.tactic === 'cerrojo') pGoal *= TACTICS.cerrojo.counter
+  pGoal = Math.max(0.08, Math.min(0.6, pGoal))
   const roll = rand()
 
   if (roll < pGoal) {
@@ -284,15 +297,16 @@ export function tick(m) {
 
   // Desgaste físico (la mentalidad y la presión marcan la intensidad)
   for (const k of ['home', 'away']) {
-    const base = m[k].tactic === 'ofensiva' ? 0.75 : m[k].tactic === 'defensiva' ? 0.55 : 0.62
+    const t = m[k].tactic
+    const base = t === 'ofensiva' ? 0.75 : t === 'defensiva' ? 0.55 : t === 'cerrojo' ? 0.6 : 0.62
     const intensity = base * PRESSING[m[k].pressing].decay
     for (const p of onPitch(m[k])) p.stamina = Math.max(10, p.stamina - intensity * (p.pos === 'POR' ? 0.3 : 1))
   }
 
   const atkH = attackPower(m.home, m.away)
   const atkA = attackPower(m.away, m.home)
-  const defH = defensePower(m.home)
-  const defA = defensePower(m.away)
+  const defH = defensePower(m.home, m.away)
+  const defA = defensePower(m.away, m.home)
 
   // Posesión
   const possH = (atkH * 1.04) / (atkH * 1.04 + atkA)
@@ -378,6 +392,13 @@ export function setTactic(m, sideKey, tactic) {
 
 export function setPressing(m, sideKey, level) {
   m[sideKey].pressing = level
+}
+
+// Charla del descanso: ajusta la moral de tu equipo para la 2ª parte
+export function applyHalftimeTalk(m, sideKey, deltaMod) {
+  const side = m[sideKey]
+  side.moraleMod = Math.max(0.9, Math.min(1.12, (side.moraleMod ?? 1) + deltaMod))
+  side.htTalk = true
 }
 
 // Minutos disputados por un jugador en este partido

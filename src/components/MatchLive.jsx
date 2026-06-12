@@ -1,8 +1,51 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { newMatch, tick, doSub, setTactic, setPressing, isOver, TACTICS, PRESSING } from '../engine/match.js'
+import { newMatch, tick, doSub, setTactic, setPressing, applyHalftimeTalk, isOver, TACTICS, PRESSING } from '../engine/match.js'
 import { penaltyForSet } from '../data/positions.js'
 import Penalties from './Penalties.jsx'
+
+// Charlas del descanso: el tono ideal depende del marcador
+function htOptions(diff) {
+  if (diff < 0) return [
+    { icon: '🔥', label: '«¡Creed, esto no ha acabado!»', delta: 0.05 },
+    { icon: '😤', label: '«¡Más intensidad o fuera!»', delta: 0.02 },
+    { icon: '🧊', label: '«Calma, sin volverse locos»', delta: -0.015 },
+  ]
+  if (diff === 0) return [
+    { icon: '⚡', label: '«Un golpe más y cae»', delta: 0.045 },
+    { icon: '🎯', label: '«Orden y paciencia»', delta: 0.02 },
+    { icon: '🧊', label: '«Tranquilos, ya llegará»', delta: -0.01 },
+  ]
+  return [
+    { icon: '🎯', label: '«Concentración hasta el final»', delta: 0.04 },
+    { icon: '⚔️', label: '«A por el segundo»', delta: 0.02 },
+    { icon: '😌', label: '«Está hecho, a especular»', delta: -0.02 },
+  ]
+}
+
+function HalftimeTalk({ m, sideKey, onDone }) {
+  const idx = sideKey === 'home' ? 0 : 1
+  const diff = m.score[idx] - m.score[1 - idx]
+  const opts = htOptions(diff)
+  const situ = diff < 0 ? 'Vais por detrás' : diff === 0 ? 'Todo en tablas' : 'Vais por delante'
+  return createPortal(
+    <div className="modal-backdrop">
+      <div className="modal ht-modal">
+        <h3 className="modal-title">🗣️ Charla del descanso</h3>
+        <p className="subs-help">{situ} ({m.score[0]}–{m.score[1]}). ¿Qué les dices? El mensaje adecuado da chispa a tu equipo en la 2ª parte.</p>
+        <div className="ht-opts">
+          {opts.map((o, i) => (
+            <button key={i} className="ht-opt" onClick={() => onDone(o.delta)}>
+              <span className="ht-icon">{o.icon}</span>
+              <span className="ht-label">{o.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
 
 const EVENT_ICON = {
   gol: '⚽', atajada: '🧤', palo: '🥅', fuera: '💨', amarilla: '🟨', roja: '🟥',
@@ -286,6 +329,10 @@ export default function MatchLive({ homeTeam, awayTeam, userSide, userSetup, aiS
       </div>
 
       {showSubs && <SubsModal m={m} sideKey={userSide} onClose={() => setShowSubs(false)} rerender={rerender} />}
+
+      {m.phase === 'HT' && !userTeamSide.htTalk && !showSubs && (
+        <HalftimeTalk m={m} sideKey={userSide} onDone={delta => { applyHalftimeTalk(m, userSide, delta); rerender() }} />
+      )}
 
       {inPens && (
         <Penalties

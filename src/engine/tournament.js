@@ -38,7 +38,38 @@ export function newTournament(userTeamId) {
     userEliminatedAt: null,
     pstate: {}, // estado vivo de cada jugador del torneo (fatiga, progresión, lesiones, stats)
     news: [], // parte médico y noticias del torneo
+    morale: 62, // moral del equipo del usuario (15-100): sube/baja con los resultados
   }
+}
+
+// ───────── Moral del equipo del usuario ─────────
+// La moral alta levanta el rendimiento del equipo (clave para que un modesto
+// con buena racha pueda dar la campanada). Se modela en el partido vía moraleMod.
+export const moraleMod = morale => Math.max(0.95, Math.min(1.07, 1 + ((morale ?? 62) - 60) * 0.0013))
+
+export function moraleLabel(m) {
+  return m >= 85 ? 'Eufórica' : m >= 70 ? 'Alta' : m >= 50 ? 'Normal' : m >= 32 ? 'Baja' : 'Hundida'
+}
+
+// Actualiza la moral tras el partido del usuario, según el resultado y si era
+// favorito o no (ganar a un grande dispara la moral; perder ante un inferior la hunde).
+export function updateUserMorale(t, f) {
+  const isHome = f.home === t.userTeamId
+  const oppId = isHome ? f.away : f.home
+  const myR = TEAM_BY_ID[t.userTeamId].rating, oppR = TEAM_BY_ID[oppId].rating
+  const my = f.score[isHome ? 0 : 1], opp = f.score[isHome ? 1 : 0]
+  let res
+  if (my > opp) res = 'W'
+  else if (my < opp) res = 'L'
+  else if (f.pens) res = (isHome ? f.pens[0] > f.pens[1] : f.pens[1] > f.pens[0]) ? 'W' : 'L'
+  else res = 'D'
+  const underdog = oppR - myR >= 5, favorite = myR - oppR >= 5
+  let delta
+  if (res === 'W') delta = underdog ? 15 : favorite ? 4 : 9
+  else if (res === 'D') delta = underdog ? 6 : favorite ? -5 : 1
+  else delta = underdog ? -3 : favorite ? -12 : -7
+  t.morale = Math.max(15, Math.min(100, (t.morale ?? 62) + delta))
+  return delta
 }
 
 // ───────── Estado persistente de jugadores ─────────
