@@ -56,6 +56,7 @@ function prepareSide(team, setup) {
     tactic: setup?.tactic ?? 'equilibrada',
     pressing: setup?.pressing ?? 'media',
     moraleMod: setup?.moraleMod ?? 1, // <1 desanimado, >1 enchufado (charlas + moral)
+    talismanId: setup?.talismanId ?? null, // tu estrella: inspira al equipo si está fresca
     htTalk: false, // ¿ya se dio la charla del descanso?
     players: xi.map(p => ({ ...p, stamina: startStamina(p), yc: 0, off: false, goals: 0, assists: 0, enterMin: 0, exitMin: null })),
     bench: bench.map(p => ({ ...p, stamina: startStamina(p), yc: 0, off: false, goals: 0, assists: 0, enterMin: null, exitMin: null })),
@@ -83,10 +84,10 @@ export function newMatch(homeTeam, awayTeam, homeSetup, awaySetup, opts = {}) {
 
 const onPitch = side => side.players.filter(p => !p.off)
 
-// Rendimiento real: media menos penalización por jugar fuera de su sitio,
-// modulada por la energía que le queda.
+// Rendimiento real: media menos penalización por jugar fuera de su sitio, más
+// el plus de un revulsivo (supersub), modulada por la energía que le queda.
 function effRating(p) {
-  return (p.r - (p.posPen ?? 0)) * (0.72 + 0.28 * (p.stamina / 100))
+  return ((p.r - (p.posPen ?? 0)) + (p.superBonus ?? 0)) * (0.72 + 0.28 * (p.stamina / 100))
 }
 
 function attackPower(side, oppSide) {
@@ -98,7 +99,13 @@ function attackPower(side, oppSide) {
     Math.max(1, att.length + mid.length * 0.6)
   const menMod = ps.length / 11
   const oppPress = oppSide ? PRESSING[oppSide.pressing].oppAtk : 1
-  return base * TACTICS[side.tactic].atk * oppPress * menMod * menMod * (side.moraleMod ?? 1)
+  // Talismán: con tu estrella fresca sobre el campo el equipo ataca inspirado
+  let tal = 1
+  if (side.talismanId) {
+    const star = ps.find(p => p.id === side.talismanId)
+    if (star && star.stamina > 35) tal = 1 + 0.05 * (0.6 + 0.4 * star.stamina / 100)
+  }
+  return base * TACTICS[side.tactic].atk * oppPress * menMod * menMod * (side.moraleMod ?? 1) * tal
 }
 
 function defensePower(side, oppSide) {
@@ -376,12 +383,24 @@ export function doSub(m, sideKey, outId, inId) {
   // El suplente hereda la casilla del que sale (y su posible penalización)
   inP.slotPos = outP.slotPos
   inP.posPen = penaltyForSet(inP.posSet, outP.slotPos)
+  // Revulsivo (supersub): si entras en la recta final sin ir ganando, el
+  // suplente sale enchufado y rinde por encima de su media.
+  const idx = sideKey === 'home' ? 0 : 1
+  const chasing = m.score[idx] <= m.score[1 - idx]
+  let extra = ''
+  if (m.minute >= 65 && chasing) {
+    inP.superSub = true
+    inP.superBonus = 3
+    extra = ' 🔥 (revulsivo)'
+  }
+  // Si retiras a tu propio talismán, el equipo pierde su chispa
+  if (outP.id === side.talismanId) extra += ' — ¡se va el talismán!'
   side.bench = side.bench.filter(p => p.id !== inId)
   side.players.push(inP)
   side.subs--
   pushEvent(m, {
     min: displayMinute(m), type: 'cambio', side: sideKey,
-    text: `Cambio en ${side.team.name}: entra ${inP.n} por ${outP.n}`,
+    text: `Cambio en ${side.team.name}: entra ${inP.n} por ${outP.n}${extra}`,
   })
   return true
 }
@@ -399,6 +418,29 @@ export function applyHalftimeTalk(m, sideKey, deltaMod) {
   const side = m[sideKey]
   side.moraleMod = Math.max(0.9, Math.min(1.12, (side.moraleMod ?? 1) + deltaMod))
   side.htTalk = true
+}
+
+// ───────── Charlas: reacción impredecible del vestuario ─────────
+// El usuario elige el TONO (leyendo el contexto) pero NO controla la reacción:
+// el tono acertado tiene más probabilidad de buena respuesta, no la garantiza.
+export const TALK_DELTA = { great: 0.05, good: 0.025, flat: 0, poor: -0.02 }
+export const TALK_REACTION = {
+  great: { icon: '🔥', text: 'El vestuario se enciende: saltan a comerse el campo' },
+  good: { icon: '👍', text: 'Buen ambiente, el equipo responde' },
+  flat: { icon: '😐', text: 'El mensaje no acaba de calar' },
+  poor: { icon: '😬', text: 'No era el momento: el equipo se tensa' },
+}
+// tier 2 = tono idóneo, 1 = aceptable, 0 = desacertado
+const TALK_DIST = {
+  2: [['great', 0.55], ['good', 0.30], ['flat', 0.12], ['poor', 0.03]],
+  1: [['great', 0.22], ['good', 0.36], ['flat', 0.30], ['poor', 0.12]],
+  0: [['great', 0.07], ['good', 0.20], ['flat', 0.40], ['poor', 0.33]],
+}
+export function rollTalk(tier) {
+  const dist = TALK_DIST[tier] ?? TALK_DIST[1]
+  let r = Math.random(), acc = 0
+  for (const [k, p] of dist) { acc += p; if (r <= acc) return k }
+  return 'flat'
 }
 
 // Minutos disputados por un jugador en este partido

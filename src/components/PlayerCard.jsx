@@ -43,6 +43,16 @@ function curiosities(p, team, squad) {
   const byAge = [...squad].sort((a, b) => b.age - a.age)
   const oldest = byAge[0], youngest = byAge[byAge.length - 1]
 
+  // Leyenda: datos propios de su época, no internacionalidades del torneo actual
+  if (p.legend) {
+    facts.push(`🏆 Leyenda de la selección, traída en su mejor versión`)
+    facts.push(`🕰️ En su prime jugaba en el ${p.club} (${p.era})`)
+    facts.push(`⭐ Media en su apogeo: ${p.r}`)
+    if (p.posSet?.length > 1) facts.push(`🔄 Podía jugar de ${SPEC_FULL[p.posSet[0]].toLowerCase()} y de ${SPEC_FULL[p.posSet[1]].toLowerCase()}`)
+    if (p.dev > 0) facts.push(`📈 Aún rinde: +${p.dev} de media en este Mundial`)
+    return facts
+  }
+
   if (p.captain) facts.push('🎽 Lleva el brazalete de capitán de la selección')
   if (p.star) facts.push('⭐ Es una de las figuras del equipo')
   if (capsRank === 1) facts.push(`🧢 El jugador más internacional de la convocatoria (${p.caps} partidos)`)
@@ -80,7 +90,8 @@ export default function PlayerCard({ player, team, squad, onClose }) {
           <div className="pc-id">
             <div className="pc-tags">
               <span className="pc-pos" style={{ background: lineColor }}>{player.npos}</span>
-              {player.star && <span className="tag tag-champ">★ Figura</span>}
+              {player.legend && <span className="tag tag-champ">🏆 Leyenda</span>}
+              {player.star && !player.legend && <span className="tag tag-champ">★ Figura</span>}
               {player.captain && <span className="tag">Ⓒ Capitán</span>}
             </div>
             <h2 className="pc-name">{player.n}</h2>
@@ -99,8 +110,10 @@ export default function PlayerCard({ player, team, squad, onClose }) {
         </header>
 
         <div className="pc-grid">
-          <div className="pc-stat"><div className="pc-stat-num">{player.age}</div><div className="pc-stat-lab">años</div></div>
-          <div className="pc-stat"><div className="pc-stat-num">{player.caps}</div><div className="pc-stat-lab">internacionalidades</div></div>
+          <div className="pc-stat"><div className="pc-stat-num">{player.age}</div><div className="pc-stat-lab">años (prime)</div></div>
+          {player.legend
+            ? <div className="pc-stat"><div className="pc-stat-num" style={{ fontSize: '15px' }}>{player.era}</div><div className="pc-stat-lab">su época</div></div>
+            : <div className="pc-stat"><div className="pc-stat-num">{player.caps}</div><div className="pc-stat-lab">internacionalidades</div></div>}
           <div className="pc-stat"><div className="pc-stat-num">{player.npos}</div><div className="pc-stat-lab">demarcación</div></div>
           {st && st.pj > 0 && (
             <>

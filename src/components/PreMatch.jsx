@@ -1,36 +1,40 @@
 import { useMemo, useState } from 'react'
 import { FORMATIONS, assignFormation, effR } from '../data/squads.js'
-import { TACTICS, PRESSING } from '../engine/match.js'
+import { TACTICS, PRESSING, rollTalk, TALK_DELTA, TALK_REACTION } from '../engine/match.js'
 import { penaltyForSet, fitOf, SPEC_FULL } from '../data/positions.js'
 
 const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e63946' }
 const fitColor = fit => (fit >= 70 ? 'var(--green)' : fit >= 40 ? 'var(--gold)' : 'var(--red)')
 const lastName = n => n.split(' ').slice(-1)[0]
 
-// Charlas de vestuario: el tono ideal depende de si eres favorito o inferior.
+// Charlas de vestuario: eliges el TONO leyendo el contexto, pero la reacción no
+// está garantizada. El tono idóneo (tier 2) responde mejor de media.
 const TALKS = {
   arenga: { icon: '📣', label: 'Arenga', desc: '«¡Salid a comeros el campo!»' },
   confianza: { icon: '🧊', label: 'Confianza', desc: '«Tranquilos, sabéis jugar a esto»' },
   foco: { icon: '🎯', label: 'Exigencia', desc: '«Máxima concentración, sin relajarse»' },
 }
-// Efecto de cada tono según el contexto (+rendimiento si aciertas)
-function talkEffect(tone, role) {
-  const table = {
-    underdog: { arenga: 0.05, confianza: 0.02, foco: -0.015 },
-    even: { confianza: 0.05, arenga: 0.025, foco: 0.025 },
-    favorite: { foco: 0.05, confianza: 0.02, arenga: -0.01 },
-  }
-  return table[role][tone] ?? 0
+const TALK_TIER = {
+  underdog: { arenga: 2, confianza: 1, foco: 0 },
+  even: { confianza: 2, arenga: 1, foco: 1 },
+  favorite: { foco: 2, confianza: 1, arenga: 0 },
 }
 
-export default function PreMatch({ team, opponent, squad, knockout, stadium, dateLabel, morale = 62, baseMoraleMod = 1, onStart, onBack }) {
+export default function PreMatch({ team, opponent, squad, knockout, stadium, dateLabel, morale = 62, baseMoraleMod = 1, pendingTalk = null, onTalk, onStart, onBack }) {
   const available = useMemo(() => squad.filter(p => p.inj === 0 && p.sus === 0), [squad])
   const out = useMemo(() => squad.filter(p => p.inj !== 0 || p.sus > 0), [squad])
   const ratingGap = opponent.rating - team.rating
   const role = ratingGap >= 5 ? 'underdog' : ratingGap <= -5 ? 'favorite' : 'even'
-  const [talk, setTalk] = useState(null)
-  const talkMod = talk ? talkEffect(talk, role) : 0
-  const finalMoraleMod = Math.max(0.9, Math.min(1.12, baseMoraleMod + talkMod))
+  // talkResult = { tone, outcome, delta } — se decide UNA vez y queda fijado
+  const [talkResult, setTalkResult] = useState(pendingTalk ?? null)
+  const giveTalk = tone => {
+    if (talkResult) return
+    const outcome = rollTalk(TALK_TIER[role][tone])
+    const res = { tone, outcome, delta: TALK_DELTA[outcome] }
+    setTalkResult(res)
+    onTalk?.(res)
+  }
+  const finalMoraleMod = Math.max(0.9, Math.min(1.12, baseMoraleMod + (talkResult?.delta ?? 0)))
   const [formation, setFormation] = useState('4-3-3')
   const [tactic, setTactic] = useState(role === 'underdog' ? 'cerrojo' : 'equilibrada')
   const [pressing, setPressing] = useState('media')
@@ -38,8 +42,10 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
   const [xi, setXi] = useState(initial.xi)
   const [bench, setBench] = useState(initial.bench)
   const [sel, setSel] = useState(null) // { kind:'slot', i } | { kind:'bench', id }
+  const bestId = list => [...list].sort((a, b) => b.r - a.r)[0]?.id
+  const [talismanId, setTalismanId] = useState(() => bestId(initial.xi))
 
-  const applyLineup = (nxi, nbench) => { setXi(nxi); setBench(nbench); setSel(null) }
+  const applyLineup = (nxi, nbench) => { setXi(nxi); setBench(nbench); setSel(null); setTalismanId(bestId(nxi)) }
 
   const changeFormation = f => {
     setFormation(f)
@@ -111,22 +117,29 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
         {/* Ajustes */}
         <div className="pm-col">
           <h3 className="pm-title">Charla de vestuario</h3>
+          {!talkResult && <p className="talk-hint">Lee el momento y elige un tono. La reacción del vestuario no está garantizada… y una vez hablas, no hay marcha atrás.</p>}
           <div className="chips">
-            {Object.entries(TALKS).map(([k, v]) => {
-              const eff = talkEffect(k, role)
-              return (
-                <button key={k} className={`chip ${talk === k ? 'on' : ''}`} onClick={() => setTalk(talk === k ? null : k)} title={v.desc}>
-                  {v.icon} {v.label}
-                </button>
-              )
-            })}
+            {Object.entries(TALKS).map(([k, v]) => (
+              <button
+                key={k}
+                className={`chip ${talkResult?.tone === k ? 'on' : ''} ${talkResult && talkResult.tone !== k ? 'dim' : ''}`}
+                onClick={() => giveTalk(k)}
+                disabled={!!talkResult}
+                title={v.desc}
+              >
+                {v.icon} {v.label}
+              </button>
+            ))}
           </div>
-          {talk && (
-            <p className={`talk-fx ${talkMod > 0.03 ? 'good' : talkMod > 0 ? 'ok' : 'bad'}`}>
-              {TALKS[talk].desc} — {talkMod > 0.03 ? '🔥 el equipo salta enchufado' : talkMod > 0 ? '👍 buen ambiente' : '😬 no era el mensaje, se tensan'}
-              {` (${talkMod >= 0 ? '+' : ''}${Math.round(talkMod * 100)}% rendimiento)`}
-            </p>
-          )}
+          {talkResult && (() => {
+            const r = TALK_REACTION[talkResult.outcome]
+            const cls = talkResult.delta > 0.03 ? 'good' : talkResult.delta > 0 ? 'ok' : talkResult.delta === 0 ? 'flat' : 'bad'
+            return (
+              <p className={`talk-fx ${cls}`}>
+                {TALKS[talkResult.tone].desc} → {r.icon} {r.text} ({talkResult.delta >= 0 ? '+' : ''}{Math.round(talkResult.delta * 100)}% rendimiento)
+              </p>
+            )
+          })()}
 
           <h3 className="pm-title">Formación</h3>
           <div className="chips">
@@ -148,6 +161,14 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
               <button key={k} className={`chip ${pressing === k ? 'on' : ''}`} onClick={() => setPressing(k)} title="La presión alta roba balones pero agota y trae tarjetas">{v.icon} {v.label}</button>
             ))}
           </div>
+
+          <h3 className="pm-title">⭐ Talismán</h3>
+          <select className="talisman-select" value={talismanId} onChange={e => setTalismanId(e.target.value)}>
+            {xi.map(p => (
+              <option key={p.id} value={p.id}>#{p.num} {p.n} ({p.r})</option>
+            ))}
+          </select>
+          <p className="pm-hint">Mientras tu estrella esté fresca sobre el campo, el equipo juega inspirado (+ataque). Si la retiras o cae lesionada, se apaga esa chispa.</p>
 
           <div className="pm-meta">
             <div className="pm-meta-box">
@@ -179,7 +200,7 @@ export default function PreMatch({ team, opponent, squad, knockout, stadium, dat
           )}
 
           <button className="btn btn-ghost pm-auto" onClick={autoLineup}>✨ Alineación automática</button>
-          <button className="btn btn-primary btn-big pm-start" onClick={() => onStart({ formation, tactic, pressing, xi, bench, moraleMod: finalMoraleMod })}>⚽ ¡Al campo!</button>
+          <button className="btn btn-primary btn-big pm-start" onClick={() => onStart({ formation, tactic, pressing, xi, bench, moraleMod: finalMoraleMod, talismanId: xi.some(p => p.id === talismanId) ? talismanId : bestId(xi) })}>⚽ ¡Al campo!</button>
           <p className="pm-hint">💡 Toca dos jugadores del campo para intercambiarlos, o un titular y luego un suplente para sustituirlo. Muchos jugadores pueden actuar en varias demarcaciones sin penalización (mira su ficha). El color del borde indica si juega en su sitio.</p>
         </div>
 

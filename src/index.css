@@ -628,7 +628,9 @@ table { border-collapse: collapse; }
 .talk-fx { font-size: 13px; margin-top: 8px; padding: 8px 12px; border-radius: 10px; }
 .talk-fx.good { background: rgba(45, 198, 83, 0.13); color: #8ef0ad; }
 .talk-fx.ok { background: rgba(255, 209, 102, 0.1); color: var(--gold); }
+.talk-fx.flat { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
 .talk-fx.bad { background: rgba(230, 57, 70, 0.12); color: #ff9aa3; }
+.talk-hint { font-size: 13px; color: var(--muted); margin-bottom: 8px; line-height: 1.45; }
 .chip.chip-bus.on { background: linear-gradient(135deg, rgba(230, 57, 70, 0.4), rgba(244, 162, 97, 0.35)); box-shadow: inset 0 0 0 1px rgba(244, 162, 97, 0.6); }
 
 .ht-modal { max-width: 480px; text-align: center; }
@@ -637,6 +639,69 @@ table { border-collapse: collapse; }
 .ht-opt:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); box-shadow: inset 0 0 0 2px var(--gold); }
 .ht-icon { font-size: 24px; }
 .ht-label { font-size: 15px; }
+.ht-result { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.ht-reaction { width: 100%; text-align: center; padding: 20px; border-radius: var(--radius); animation: penPop 0.35s ease both; }
+.ht-reaction.good { background: rgba(45, 198, 83, 0.15); box-shadow: inset 0 0 0 1px rgba(45, 198, 83, 0.4); }
+.ht-reaction.ok { background: rgba(255, 209, 102, 0.12); box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.4); }
+.ht-reaction.flat { background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--card-border); }
+.ht-reaction.bad { background: rgba(230, 57, 70, 0.13); box-shadow: inset 0 0 0 1px rgba(230, 57, 70, 0.4); }
+.ht-reaction-icon { font-size: 40px; }
+.ht-reaction-text { font-weight: 700; font-size: 16px; margin: 6px 0 4px; }
+.ht-reaction-eff { font-family: var(--font-display); font-weight: 900; font-size: 15px; }
+.ht-reaction.good .ht-reaction-eff { color: #8ef0ad; }
+.ht-reaction.ok .ht-reaction-eff { color: var(--gold); }
+.ht-reaction.flat .ht-reaction-eff { color: var(--muted); }
+.ht-reaction.bad .ht-reaction-eff { color: #ff9aa3; }
+
+/* ───────── TALISMÁN Y REVULSIVOS ───────── */
+.talisman-select { width: 100%; padding: 11px 13px; border-radius: 12px; background: var(--card); color: var(--text); border: 1px solid var(--card-border); font-family: inherit; font-size: 14px; outline: none; cursor: pointer; }
+.talisman-select:focus { border-color: var(--gold); }
+.pp-badge { position: absolute; font-size: 12px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.pp-tal { top: -7px; left: -8px; }
+.pp-super { bottom: -5px; right: -8px; }
+.sub-row.talisman { box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.55); }
+.sub-row.talisman.sel { box-shadow: inset 0 0 0 2px var(--gold); }
+
+/* ───────── RULETA Y LEYENDAS ───────── */
+.legend-intro { text-align: center; padding: 10px 0 30px; }
+.legend-intro .page-sub { max-width: 640px; margin: 8px auto 26px; }
+.roulette { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; max-width: 560px; margin: 0 auto 26px; }
+.roul-seg {
+  padding: 28px 16px; border-radius: var(--radius); position: relative; overflow: hidden;
+  background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border);
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.roul-seg.win { background: linear-gradient(160deg, rgba(255, 209, 102, 0.16), var(--card)); }
+.roul-seg.lit { transform: scale(1.05); box-shadow: inset 0 0 0 2px var(--gold), 0 8px 22px rgba(0, 0, 0, 0.4); }
+.roul-seg.landed { transform: scale(1.05); box-shadow: inset 0 0 0 3px var(--gold), 0 0 30px rgba(255, 209, 102, 0.4); animation: penPop 0.4s ease both; }
+.roul-seg.landed.lose { box-shadow: inset 0 0 0 3px var(--muted); }
+.roul-icon { font-size: 38px; }
+.roul-label { font-weight: 700; font-size: 15px; margin-top: 6px; }
+.roul-seg.win .roul-label { color: var(--gold); }
+.roul-spin { margin: 6px auto; display: block; }
+.roul-result { max-width: 520px; margin: 0 auto; padding: 24px; border-radius: 24px; animation: pageIn 0.4s ease both; }
+.roul-result.win { background: rgba(255, 209, 102, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.4); }
+.roul-result.lose { background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border); }
+.roul-result-title { font-family: var(--font-display); font-weight: 900; font-size: 24px; margin-bottom: 8px; }
+.roul-result.win .roul-result-title { color: var(--gold); }
+.roul-result p { color: var(--muted); margin-bottom: 18px; }
+
+.legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; max-width: 1000px; margin: 0 auto; }
+.legend-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 22px 16px 18px; border-radius: 20px; text-align: center;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--c1) 22%, transparent), var(--card));
+  box-shadow: inset 0 0 0 1px var(--card-border); transition: transform 0.2s, box-shadow 0.2s;
+  animation: pageIn 0.5s ease both;
+}
+.legend-card:hover { transform: translateY(-7px); box-shadow: inset 0 0 0 2px var(--gold), 0 16px 36px rgba(0, 0, 0, 0.5); }
+.legend-pos { position: absolute; top: 14px; right: 14px; font-family: var(--font-display); font-weight: 900; font-size: 11px; padding: 3px 8px; border-radius: 99px; color: #081020; }
+.legend-name { font-family: var(--font-display); font-weight: 800; font-size: 17px; margin-top: 8px; line-height: 1.15; }
+.legend-role { color: var(--muted); font-size: 12.5px; }
+.legend-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.legend-rating { font-family: var(--font-display); font-weight: 900; font-size: 34px; color: var(--gold); margin-top: 8px; }
+
+.legend-banner { padding: 11px 18px; border-radius: var(--radius); background: linear-gradient(120deg, rgba(255, 209, 102, 0.14), var(--card)); box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.35); font-size: 14px; margin-bottom: 16px; }
 .pc-altpos { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; font-size: 12px; color: var(--muted); }
 .pc-altpos-chip { font-family: var(--font-display); font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px var(--card-border); color: var(--text); }
 

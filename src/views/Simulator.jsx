@@ -10,6 +10,7 @@ import MatchLive from '../components/MatchLive.jsx'
 import GroupTables from '../components/GroupTables.jsx'
 import Bracket from '../components/Bracket.jsx'
 import PlayerCard from '../components/PlayerCard.jsx'
+import { LegendRoulette, LegendPicker } from '../components/LegendIntro.jsx'
 import { fmtDate, fmtDateLong } from '../data/calendar.js'
 
 const SAVE_KEY = 'mundial26_save_v1'
@@ -25,6 +26,8 @@ const load = () => {
     t.pstate ??= {}
     t.news ??= []
     t.morale ??= 62
+    t.legend ??= null
+    t.legendPhase ??= 'done' // partidas antiguas se saltan la ruleta
     return t
   } catch { return null }
 }
@@ -191,6 +194,21 @@ export default function Simulator({ go }) {
   if (!t) return <TeamPicker onPick={pick} />
 
   const userTeam = TEAM_BY_ID[t.userTeamId]
+
+  // ───── Intro: ruleta de leyenda al empezar ─────
+  if (t.legendPhase === 'roulette') {
+    return <LegendRoulette team={userTeam} onResult={win => {
+      const nt = { ...t, legendPhase: win ? 'pick' : 'done' }
+      save(nt); setT(nt); window.scrollTo({ top: 0 })
+    }} />
+  }
+  if (t.legendPhase === 'pick') {
+    return <LegendPicker team={userTeam} onPick={legend => {
+      const nt = { ...t, legend, legendPhase: 'done' }
+      save(nt); setT(nt); window.scrollTo({ top: 0 })
+    }} />
+  }
+
   const um = userMatch(t)
   const knockout = t.stage !== 'groups'
 
@@ -207,6 +225,7 @@ export default function Simulator({ go }) {
           recordUserResult(t, um, result)
           updateUserMorale(t, um)
           applyMatchEffects(t, result.match)
+          t.pendingTalk = null // la charla era de este partido; se descarta
           const nt = advance(structuredClone(t))
           save(nt)
           setT(nt)
@@ -232,6 +251,8 @@ export default function Simulator({ go }) {
         dateLabel={fmtDateLong(um.date)}
         morale={t.morale}
         baseMoraleMod={moraleMod(t.morale)}
+        pendingTalk={t.pendingTalk?.fixtureId === um.id ? t.pendingTalk : null}
+        onTalk={res => { t.pendingTalk = { fixtureId: um.id, ...res }; save(t) }}
         onBack={() => setScreen('hub')}
         onStart={s => { setSetup(s); setScreen('live'); window.scrollTo({ top: 0 }) }}
       />
@@ -288,6 +309,10 @@ export default function Simulator({ go }) {
         </div>
         <span className="morale-val">{moraleLabel(t.morale)} · {Math.round(t.morale)}</span>
       </div>
+
+      {t.legend && (
+        <div className="legend-banner">⭐ Leyenda en plantilla: <b>{t.legend.n}</b> ({t.legend.npos} · {t.legend.r}) — {t.legend.club}, {t.legend.era}</div>
+      )}
 
       <ResultBanner fixture={lastFixture} userTeamId={t.userTeamId} />
 

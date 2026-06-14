@@ -1,25 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { newMatch, tick, doSub, setTactic, setPressing, applyHalftimeTalk, isOver, TACTICS, PRESSING } from '../engine/match.js'
+import { newMatch, tick, doSub, setTactic, setPressing, applyHalftimeTalk, rollTalk, TALK_DELTA, TALK_REACTION, isOver, TACTICS, PRESSING } from '../engine/match.js'
 import { penaltyForSet } from '../data/positions.js'
 import Penalties from './Penalties.jsx'
 
-// Charlas del descanso: el tono ideal depende del marcador
+// Opciones de charla del descanso según el marcador. tier: 2 idónea, 1 ok, 0 mal.
 function htOptions(diff) {
   if (diff < 0) return [
-    { icon: '🔥', label: '«¡Creed, esto no ha acabado!»', delta: 0.05 },
-    { icon: '😤', label: '«¡Más intensidad o fuera!»', delta: 0.02 },
-    { icon: '🧊', label: '«Calma, sin volverse locos»', delta: -0.015 },
+    { icon: '🔥', label: '«¡Creed, esto no ha acabado!»', tier: 2 },
+    { icon: '😤', label: '«¡Más intensidad o fuera!»', tier: 1 },
+    { icon: '🧊', label: '«Calma, sin volverse locos»', tier: 0 },
   ]
   if (diff === 0) return [
-    { icon: '⚡', label: '«Un golpe más y cae»', delta: 0.045 },
-    { icon: '🎯', label: '«Orden y paciencia»', delta: 0.02 },
-    { icon: '🧊', label: '«Tranquilos, ya llegará»', delta: -0.01 },
+    { icon: '⚡', label: '«Un golpe más y cae»', tier: 2 },
+    { icon: '🎯', label: '«Orden y paciencia»', tier: 1 },
+    { icon: '🧊', label: '«Tranquilos, ya llegará»', tier: 0 },
   ]
   return [
-    { icon: '🎯', label: '«Concentración hasta el final»', delta: 0.04 },
-    { icon: '⚔️', label: '«A por el segundo»', delta: 0.02 },
-    { icon: '😌', label: '«Está hecho, a especular»', delta: -0.02 },
+    { icon: '🎯', label: '«Concentración hasta el final»', tier: 2 },
+    { icon: '⚔️', label: '«A por el segundo»', tier: 1 },
+    { icon: '😌', label: '«Está hecho, a especular»', tier: 0 },
   ]
 }
 
@@ -28,19 +28,43 @@ function HalftimeTalk({ m, sideKey, onDone }) {
   const diff = m.score[idx] - m.score[1 - idx]
   const opts = htOptions(diff)
   const situ = diff < 0 ? 'Vais por detrás' : diff === 0 ? 'Todo en tablas' : 'Vais por delante'
+  const [result, setResult] = useState(null) // { delta, outcome }
+
+  const choose = tier => {
+    const outcome = rollTalk(tier)
+    setResult({ outcome, delta: TALK_DELTA[outcome] })
+  }
+
   return createPortal(
     <div className="modal-backdrop">
       <div className="modal ht-modal">
         <h3 className="modal-title">🗣️ Charla del descanso</h3>
-        <p className="subs-help">{situ} ({m.score[0]}–{m.score[1]}). ¿Qué les dices? El mensaje adecuado da chispa a tu equipo en la 2ª parte.</p>
-        <div className="ht-opts">
-          {opts.map((o, i) => (
-            <button key={i} className="ht-opt" onClick={() => onDone(o.delta)}>
-              <span className="ht-icon">{o.icon}</span>
-              <span className="ht-label">{o.label}</span>
-            </button>
-          ))}
-        </div>
+        {!result ? (
+          <>
+            <p className="subs-help">{situ} ({m.score[0]}–{m.score[1]}). ¿Qué les dices? Elige el tono… pero cómo reaccionen no depende solo de ti.</p>
+            <div className="ht-opts">
+              {opts.map((o, i) => (
+                <button key={i} className="ht-opt" onClick={() => choose(o.tier)}>
+                  <span className="ht-icon">{o.icon}</span>
+                  <span className="ht-label">{o.label}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (() => {
+          const r = TALK_REACTION[result.outcome]
+          const cls = result.delta > 0.03 ? 'good' : result.delta > 0 ? 'ok' : result.delta === 0 ? 'flat' : 'bad'
+          return (
+            <div className="ht-result">
+              <div className={`ht-reaction ${cls}`}>
+                <div className="ht-reaction-icon">{r.icon}</div>
+                <div className="ht-reaction-text">{r.text}</div>
+                <div className="ht-reaction-eff">{result.delta >= 0 ? '+' : ''}{Math.round(result.delta * 100)}% rendimiento en la 2ª parte</div>
+              </div>
+              <button className="btn btn-primary btn-big" onClick={() => onDone(result.delta)}>▶️ Salir a la 2ª parte</button>
+            </div>
+          )
+        })()}
       </div>
     </div>,
     document.body
@@ -70,10 +94,12 @@ function PitchSide({ side, top, color }) {
       {ordered.map(pos => (
         <div className="pitch-row" key={pos}>
           {onPitch(side).filter(p => p.pos === pos).map(p => (
-            <div className="pitch-player" key={p.id} title={`${p.n} · ${p.r} · energía ${Math.round(p.stamina)}%`}>
+            <div className="pitch-player" key={p.id} title={`${p.n} · ${p.r} · energía ${Math.round(p.stamina)}%${p.id === side.talismanId ? ' · ⭐ talismán' : ''}${p.superSub ? ' · 🔥 revulsivo' : ''}`}>
               <span className="pp-dot" style={{ background: color }}>
                 {p.num}
                 {p.yc > 0 && <i className="pp-yc" />}
+                {p.id === side.talismanId && <i className="pp-badge pp-tal">⭐</i>}
+                {p.superSub && <i className="pp-badge pp-super">🔥</i>}
               </span>
               <span className="pp-name">
                 {p.n.split(' ').slice(-1)[0]}
@@ -91,14 +117,14 @@ function PitchSide({ side, top, color }) {
 const POS_COLOR = { POR: '#f4a261', DEF: '#4895ef', MED: '#2dc653', DEL: '#e63946' }
 const stamColor = s => (s >= 60 ? 'var(--green)' : s >= 35 ? 'var(--gold)' : 'var(--red)')
 
-function SubRow({ p, onClick, selected, disabled, dim, isBench, slotPos }) {
+function SubRow({ p, onClick, selected, disabled, dim, isBench, slotPos, talisman }) {
   // Penalización si este suplente entrara en la casilla del que sale
   const pen = isBench && slotPos ? penaltyForSet(p.posSet, slotPos) : 0
   return (
-    <button className={`sub-row ${selected ? 'sel' : ''} ${dim ? 'dim' : ''} ${p.injured ? 'injured' : ''}`} disabled={disabled} onClick={onClick}>
+    <button className={`sub-row ${selected ? 'sel' : ''} ${dim ? 'dim' : ''} ${p.injured ? 'injured' : ''} ${talisman ? 'talisman' : ''}`} disabled={disabled} onClick={onClick}>
       <span className="sub-pos" style={{ background: POS_COLOR[p.pos] }}>{p.npos}</span>
       <span className="sub-main">
-        <span className="sub-name">{p.n} {p.star && <em className="star-mini">★</em>}{p.captain && <em className="cap-badge">Ⓒ</em>}{p.injured && ' 🚑'}</span>
+        <span className="sub-name">{p.n} {talisman && <em title="Talismán">⭐</em>}{p.star && <em className="star-mini">★</em>}{p.captain && <em className="cap-badge">Ⓒ</em>}{p.superSub && <em title="Revulsivo"> 🔥</em>}{p.injured && ' 🚑'}</span>
         <span className="sub-meta">
           #{p.num} · {p.age} años
           {p.goals > 0 && <em className="sub-goal"> · ⚽{p.goals}</em>}
@@ -139,7 +165,7 @@ function SubsModal({ m, sideKey, onClose, rerender }) {
             <h4>⬇️ En el campo {outP && <span className="subs-pick">— sale {outP.n.split(' ').slice(-1)[0]}</span>}</h4>
             <div className="pm-list">
               {onPitch(side).map(p => (
-                <SubRow key={p.id} p={p} selected={outP?.id === p.id} onClick={() => setOutP(p)} />
+                <SubRow key={p.id} p={p} talisman={p.id === side.talismanId} selected={outP?.id === p.id} onClick={() => setOutP(p)} />
               ))}
             </div>
           </div>

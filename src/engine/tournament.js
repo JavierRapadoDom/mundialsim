@@ -39,6 +39,8 @@ export function newTournament(userTeamId) {
     pstate: {}, // estado vivo de cada jugador del torneo (fatiga, progresión, lesiones, stats)
     news: [], // parte médico y noticias del torneo
     morale: 62, // moral del equipo del usuario (15-100): sube/baja con los resultados
+    legend: null, // leyenda añadida a la plantilla del usuario (si la ruleta lo concede)
+    legendPhase: 'roulette', // roulette → pick → done
   }
 }
 
@@ -85,9 +87,15 @@ export function pst(t, p) {
   return s
 }
 
+// Plantilla base + la leyenda añadida (si la hay para este equipo)
+function rosterOf(t, team) {
+  const base = getSquad(team)
+  return (t.legend && t.legend.team === team.id) ? [...base, t.legend] : base
+}
+
 // Plantilla con el estado del torneo aplicado (media efectiva, energía, bajas)
 export function effSquad(t, team) {
-  return getSquad(team).map(p => {
+  return rosterOf(t, team).map(p => {
     const s = t.pstate[p.id]
     return {
       ...p,
@@ -134,7 +142,7 @@ export function applyMatchEffects(t, m) {
     const team = side.team
     // Los lesionados/sancionados que no jugaron cumplen un partido
     const appeared = new Set(side.players.map(p => p.id))
-    for (const p of getSquad(team)) {
+    for (const p of rosterOf(t, team)) {
       if (appeared.has(p.id)) continue
       const s = t.pstate[p.id]
       if (!s) continue
@@ -267,7 +275,8 @@ export function winnerOf(f) {
   if (!f.played) return null
   const [h, a] = f.score
   if (h !== a) return h > a ? f.home : f.away
-  return f.pens[0] > f.pens[1] ? f.home : f.away
+  if (f.pens) return f.pens[0] > f.pens[1] ? f.home : f.away
+  return null // empate sin penaltis (fase de grupos)
 }
 
 // ───────── Partidos pendientes / del usuario ─────────
