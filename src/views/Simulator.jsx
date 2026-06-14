@@ -3,9 +3,10 @@ import { TEAMS, TEAM_BY_ID, GROUPS, groupTeams } from '../data/teams.js'
 import {
   newTournament, currentMatches, userMatch, recordUserResult, advance,
   simulateToEnd, winnerOf, STAGE_LABEL, effSquad, availableSquad, applyMatchEffects,
-  moraleMod, moraleLabel, updateUserMorale, leaderboards,
+  moraleMod, moraleLabel, updateUserMorale, leaderboards, pressHeadline,
 } from '../engine/tournament.js'
 import { INTENSITIES, PLAYER_ROLES, roleMods } from '../engine/match.js'
+import { Avatar } from '../components/PlayerCard.jsx'
 import PreMatch from '../components/PreMatch.jsx'
 import MatchLive from '../components/MatchLive.jsx'
 import GroupTables from '../components/GroupTables.jsx'
@@ -30,6 +31,7 @@ const load = () => {
     t.legend ??= null
     t.legendPhase ??= 'done' // partidas antiguas se saltan la ruleta
     t.roles ??= {}
+    t.lastHeadline ??= null
     return t
   } catch { return null }
 }
@@ -315,6 +317,7 @@ export default function Simulator({ go }) {
         onFinish={result => {
           recordUserResult(t, um, result)
           updateUserMorale(t, um)
+          t.lastHeadline = pressHeadline(t, um, result) // prensa antes de avanzar de ronda
           applyMatchEffects(t, result.match)
           t.pendingTalk = null // la charla era de este partido; se descarta
           const nt = advance(structuredClone(t))
@@ -406,6 +409,22 @@ export default function Simulator({ go }) {
       )}
 
       <ResultBanner fixture={lastFixture} userTeamId={t.userTeamId} />
+
+      {lastFixture && t.lastHeadline && (() => {
+        const star = t.lastHeadline.starName ? effSquad(t, userTeam).find(p => p.n === t.lastHeadline.starName) : null
+        return (
+          <div className="press-card">
+            <div className="press-masthead">📰 {t.lastHeadline.masthead}</div>
+            <div className="press-body">
+              {star && <Avatar player={star} team={userTeam} size={64} />}
+              <div className="press-text">
+                <div className="press-headline">{t.lastHeadline.headline}</div>
+                <div className="press-sub">{t.lastHeadline.sub}</div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {um ? (
         <div className="next-match">

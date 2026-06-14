@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { newMatch, tick, doSub, setTactic, setPressing, applyHalftimeTalk, rollTalk, TALK_DELTA, TALK_REACTION, isOver, TACTICS, PRESSING } from '../engine/match.js'
 import { penaltyForSet } from '../data/positions.js'
 import Penalties from './Penalties.jsx'
+import { Avatar } from './PlayerCard.jsx'
 
 // Opciones de charla del descanso según el marcador. tier: 2 idónea, 1 ok, 0 mal.
 function htOptions(diff) {
@@ -74,7 +75,53 @@ function HalftimeTalk({ m, sideKey, onDone }) {
 const EVENT_ICON = {
   gol: '⚽', atajada: '🧤', palo: '🥅', fuera: '💨', amarilla: '🟨', roja: '🟥',
   lesion: '🚑', cambio: '🔁', inicio: '▶️', descanso: '⏸️', final: '🏁',
-  penalti: '⚠️', fallo: '❌', penales: '🎯',
+  penalti: '⚠️', fallo: '❌', penales: '🎯', var: '🔎',
+}
+
+const pickOne = arr => arr[Math.floor(Math.random() * arr.length)]
+const parseMin = min => parseInt(String(min)) || 0
+
+// Detecta los momentos dignos de cinemática y construye el overlay
+function cinematicFor(ev, m, userSide, homeTeam, awayTeam) {
+  const team = ev.side === 'home' ? homeTeam : awayTeam
+  const mine = ev.side === userSide
+  if (ev.type === 'gol') {
+    const p = ev.player
+    const min = parseMin(ev.min)
+    const idx = ev.side === 'home' ? 0 : 1
+    const after = ev.score, before = [...after]; before[idx] -= 1
+    const swing = before[idx] <= before[1 - idx] && after[idx] >= after[1 - idx]
+    const hat = p && p.goals === 3
+    const special = p && (p.star || p.legend)
+    if (!(min >= 80 || swing || hat || special)) return null
+    let sub
+    if (hat) sub = mine ? '¡HAT-TRICK! Noche para enmarcar' : 'Un hat-trick que hace mucho daño'
+    else if (min >= 85) sub = mine ? pickOne(['¡En el último suspiro!', '¡Gol agónico que vale oro!', '¡No quedaba nada y la mete!']) : '¡Jarro de agua fría sobre la bocina!'
+    else if (swing) sub = mine ? pickOne(['¡Le da la vuelta al marcador!', '¡Esto se reactiva!', '¡El sueño sigue vivo!']) : 'El rival golpea y se pone por delante'
+    else sub = mine ? pickOne(['La estrella aparece cuando más se le espera', '¡A la red! El estadio estalla', 'Golazo de bandera']) : 'El crack rival hace de las suyas'
+    return { kind: 'goal', mine, team, player: p, kicker: hat ? '¡HAT-TRICK!' : '¡GOOOOL!', title: p?.n, sub, score: ev.score, min: ev.min }
+  }
+  if (ev.type === 'roja') return { kind: 'red', mine, team, player: ev.player, kicker: '🟥 TARJETA ROJA', title: ev.player?.n, sub: mine ? 'Te quedas con uno menos: toca sufrir' : '¡El rival se queda con diez!', score: m.score, min: ev.min }
+  if (ev.type === 'penalti') return { kind: 'pen', mine, team, player: ev.player, kicker: '⚠️ ¡PENALTI!', title: mine ? `Pena máxima para ${team.name}` : `Penalti en contra…`, sub: 'El árbitro señala los once metros', score: m.score, min: ev.min }
+  if (ev.type === 'fallo') return { kind: 'penmiss', mine, team, player: ev.player, kicker: '❌ ¡PENALTI FALLADO!', title: mine ? '¡Ocasión desperdiciada!' : '¡Tu portería respira!', sub: 'Desde los once metros, no perdona quien acierta', score: m.score, min: ev.min }
+  if (ev.type === 'var') return { kind: 'var', mine, team, player: ev.player, kicker: '🔎 VAR', title: mine ? '¡Te lo anulan!' : '¡El VAR te salva!', sub: ev.text.replace(/^🔎 ¡VAR! /, '').replace(/^🔎 /, ''), score: m.score, min: ev.min }
+  return null
+}
+
+function Cinematic({ c, onDone }) {
+  return createPortal(
+    <div className={`cine cine-${c.kind} ${c.mine ? 'mine' : 'rival'}`} onClick={onDone} style={{ '--c1': c.team.colors[0], '--c2': c.team.colors[1] }}>
+      <div className="cine-card">
+        {c.player ? <Avatar player={c.player} team={c.team} size={128} /> : <div className="cine-flag">{c.team.flag}</div>}
+        <div className="cine-kicker">{c.kicker}</div>
+        <div className="cine-title">{c.title}</div>
+        <div className="cine-sub">{c.sub}</div>
+        <div className="cine-score">{c.team.flag} {c.score[0]} – {c.score[1]} <small>· {c.min}'</small></div>
+        <div className="cine-skip">toca para saltar</div>
+      </div>
+    </div>,
+    document.body
+  )
 }
 
 const onPitch = side => side.players.filter(p => !p.off)
@@ -199,6 +246,7 @@ export default function MatchLive({ homeTeam, awayTeam, userSide, userSetup, aiS
   const [speed, setSpeed] = useState(1)
   const [showSubs, setShowSubs] = useState(false)
   const [pensDone, setPensDone] = useState(null)
+  const [cine, setCine] = useState(null) // momento clave en pantalla
   const feedRef = useRef(null)
 
   const over = isOver(m)
@@ -206,17 +254,27 @@ export default function MatchLive({ homeTeam, awayTeam, userSide, userSetup, aiS
   const paused = speed === 0 || showSubs || over || inPens || ['HT', 'ETHT'].includes(m.phase) && speed === 0
 
   useEffect(() => {
-    if (speed === 0 || showSubs || over || m.phase === 'PENS') return
+    if (speed === 0 || showSubs || over || cine || m.phase === 'PENS') return
     const id = setInterval(() => {
       const evts = tick(m)
+      let firstCine = null
       for (const e of evts) {
         if (['descanso', 'final', 'penales'].includes(e.type)) setSpeed(0)
         if (e.type === 'lesion' && e.side === userSide) { setSpeed(0); setShowSubs(true) }
+        if (!firstCine) firstCine = cinematicFor(e, m, userSide, homeTeam, awayTeam)
       }
+      if (firstCine) setCine(firstCine)
       rerender()
     }, 650 / speed)
     return () => clearInterval(id)
-  }, [speed, showSubs, over, m.phase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [speed, showSubs, over, cine, m.phase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // La cinemática se mantiene unos segundos y luego el partido sigue
+  useEffect(() => {
+    if (!cine) return
+    const id = setTimeout(() => setCine(null), 2400)
+    return () => clearTimeout(id)
+  }, [cine])
 
   useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = 0
@@ -353,6 +411,8 @@ export default function MatchLive({ homeTeam, awayTeam, userSide, userSetup, aiS
           </div>
         </div>
       </div>
+
+      {cine && <Cinematic c={cine} onDone={() => setCine(null)} />}
 
       {showSubs && <SubsModal m={m} sideKey={userSide} onClose={() => setShowSubs(false)} rerender={rerender} />}
 

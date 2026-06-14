@@ -71,6 +71,8 @@ const TXT = {
   penalti: ['¡PENALTI! Derriban a {p} dentro del área y el árbitro no duda', '¡PENALTI tras revisión del VAR! Mano clara en el área'],
   penGol: ['¡GOL DE PENALTI! {p} engaña al portero con sangre fría', '¡GOL! {p} la pone donde las arañas tejen su tela'],
   penFallo: ['¡LO PARA EL PORTERO! {g} adivina las intenciones de {p}', '¡FUERA! {p} manda el penalti a las gradas. Increíble'],
+  varGol: ['fuera de juego milimétrico', 'falta previa en el ataque', 'el balón había salido por la línea de fondo', 'mano en la jugada del goleador', 'empujón en el área antes del remate'],
+  varPen: ['el árbitro rectifica tras el monitor: no había penalti', 'el VAR lo corrige: el contacto venía de fuera del área', 'tras la revisión, el colegiado anula la pena máxima: había sido el atacante quien buscó la falta'],
 }
 
 function fmt(template, p, g) {
@@ -197,7 +199,12 @@ function resolveChance(m, atkKey, out) {
 
   // Penalti ocasional
   if (rand() < 0.045) {
-    pushEvent(m, { min: displayMinute(m), type: 'penalti', side: atkKey, text: fmt(pick(rand, TXT.penalti), shooter) })
+    out.push(pushEvent(m, { min: displayMinute(m), type: 'penalti', side: atkKey, player: shooter, text: fmt(pick(rand, TXT.penalti), shooter) }))
+    // El VAR puede corregir y anular el penalti (drama)
+    if (rand() < 0.12) {
+      out.push(pushEvent(m, { min: displayMinute(m), type: 'var', side: atkKey, text: `🔎 ¡VAR! ${pick(rand, TXT.varPen)}`, score: [...m.score] }))
+      return
+    }
     const taker = onPitch(atkSide).filter(p => p.pos !== 'POR').sort((a, b) => b.r - a.r)[0]
     if (rand() < 0.76) {
       m.score[atkKey === 'home' ? 0 : 1]++
@@ -220,9 +227,14 @@ function resolveChance(m, atkKey, out) {
   const roll = rand()
 
   if (roll < pGoal) {
+    atkSide.stats.onTarget++
+    // El VAR puede anular el gol (drama puro): no sube al marcador
+    if (rand() < 0.06) {
+      out.push(pushEvent(m, { min: displayMinute(m), type: 'var', side: atkKey, player: shooter, text: `🔎 ¡VAR! Anulado el gol de ${shooter.n}: ${pick(rand, TXT.varGol)}`, score: [...m.score] }))
+      return
+    }
     m.score[atkKey === 'home' ? 0 : 1]++
     shooter.goals++
-    atkSide.stats.onTarget++
     const txtPool = TXT['gol' + shooter.pos] ?? TXT.golDEL
     let text = fmt(pick(rand, txtPool), shooter)
     // Asistencia: en ~2 de cada 3 goles hay un pasador
@@ -359,8 +371,8 @@ export function tick(m) {
   m.home.stats.possession = Math.round((m.home.stats.possession * (m.minute - 1) + possH * 100) / m.minute)
   m.away.stats.possession = 100 - m.home.stats.possession
 
-  // Ocasiones (ventaja local ligera)
-  const base = 0.047
+  // Ocasiones (ventaja local ligera; algo más alto para compensar el VAR)
+  const base = 0.051
   const pH = base * Math.pow((atkH * 1.05) / defA, 2.4)
   const pA = base * Math.pow(atkA / defH, 2.4)
   if (rand() < pH) resolveChance(m, 'home', out)

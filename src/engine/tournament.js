@@ -394,3 +394,34 @@ export function leaderboards(t) {
     reds: top('rc', 'yc'),
   }
 }
+
+// ───────── Prensa tras el partido del usuario ─────────
+const pickArr = a => a[Math.floor(Math.random() * a.length)]
+const NEXT_LABEL = { groups: 'la siguiente jornada', R32: 'octavos de final', R16: 'cuartos de final', QF: 'las semifinales', SF: 'la GRAN FINAL', F: 'lo más alto' }
+
+export function pressHeadline(t, f, result) {
+  const isHome = f.home === t.userTeamId
+  const me = TEAM_BY_ID[t.userTeamId], opp = TEAM_BY_ID[isHome ? f.away : f.home]
+  const my = f.score[isHome ? 0 : 1], their = f.score[isHome ? 1 : 0]
+  const pens = f.pens
+  const wonPens = pens && (isHome ? pens[0] > pens[1] : pens[1] > pens[0])
+  const res = my > their ? 'W' : my < their ? 'L' : (pens ? (wonPens ? 'W' : 'L') : 'D')
+  const ko = t.stage !== 'groups'
+  const score = `${my}-${their}`
+  const next = NEXT_LABEL[t.stage] ?? 'la siguiente ronda'
+  const scorers = result?.scorers?.[isHome ? 'home' : 'away'] ?? []
+  const star = [...scorers].sort((a, b) => b.g - a.g)[0]
+  const sN = star?.n ?? null
+
+  let pool
+  if (res === 'W' && pens) pool = [`¡${me.name} sobrevive en los penaltis y se mete en ${next}!`, `Lotería desde los once metros: ${me.name} avanza a ${next}`, `Noche de infarto: ${me.name} elimina a ${opp.name} en la tanda`]
+  else if (res === 'W' && my - their >= 3) pool = sN ? [`${sN} lidera la goleada de ${me.name} (${score})`, `Recital de ${me.name}: ${score} ante ${opp.name}`, `${me.name} pasa por encima de ${opp.name}`] : [`${me.name} golea a ${opp.name} (${score})`, `Festival de ${me.name}: ${score}`]
+  else if (res === 'W' && ko) pool = sN ? [`${sN} mete a ${me.name} en ${next}`, `${me.name} sufre pero se cuela en ${next}`, `¡${me.name} sigue soñando! A ${next} tras ganar a ${opp.name}`] : [`${me.name} avanza a ${next} tras vencer a ${opp.name}`, `${me.name} ya está en ${next}`]
+  else if (res === 'W') pool = sN ? [`${sN} decide y ${me.name} gana a ${opp.name}`, `${me.name} se lleva los tres puntos (${score})`, `Triunfo de ${me.name} con sello de ${sN}`] : [`${me.name} suma de tres ante ${opp.name} (${score})`, `Victoria trabajada de ${me.name}: ${score}`]
+  else if (res === 'D') pool = [`${me.name} reparte puntos con ${opp.name} (${score})`, `${me.name} no pasa del empate ante ${opp.name}`, `Tablas entre ${me.name} y ${opp.name}`]
+  else if (res === 'L' && ko) pool = [`Adiós al sueño: ${me.name} cae ante ${opp.name}`, `Noche negra: ${me.name} se despide del Mundial`, `${opp.name} deja fuera a ${me.name} (${score})`]
+  else pool = [`Tropiezo de ${me.name} frente a ${opp.name} (${score})`, `Derrota de ${me.name}: ${score}`, `${me.name} complica su camino tras caer con ${opp.name}`]
+
+  const subs = res === 'W' ? ['La afición se entrega', 'Euforia desbordada en la grada', 'A seguir soñando'] : res === 'D' ? ['Sabor agridulce', 'Tocará apretar', 'No fue suficiente'] : ['Decepción en las gradas', 'Día para olvidar', 'Toca levantarse rápido']
+  return { masthead: pickArr(['EL MUNDIALISTA', 'DIARIO MUNDIAL', 'LA GACETA DEPORTIVA', 'GOL DIGITAL', 'PLANETA FÚTBOL']), headline: pickArr(pool), sub: pickArr(subs), starName: sN }
+}
