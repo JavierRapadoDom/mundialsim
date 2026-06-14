@@ -3,8 +3,9 @@ import { TEAMS, TEAM_BY_ID, GROUPS, groupTeams } from '../data/teams.js'
 import {
   newTournament, currentMatches, userMatch, recordUserResult, advance,
   simulateToEnd, winnerOf, STAGE_LABEL, effSquad, availableSquad, applyMatchEffects,
-  moraleMod, moraleLabel, updateUserMorale,
+  moraleMod, moraleLabel, updateUserMorale, leaderboards,
 } from '../engine/tournament.js'
+import { INTENSITIES, PLAYER_ROLES, roleMods } from '../engine/match.js'
 import PreMatch from '../components/PreMatch.jsx'
 import MatchLive from '../components/MatchLive.jsx'
 import GroupTables from '../components/GroupTables.jsx'
@@ -28,6 +29,7 @@ const load = () => {
     t.morale ??= 62
     t.legend ??= null
     t.legendPhase ??= 'done' // partidas antiguas se saltan la ruleta
+    t.roles ??= {}
     return t
   } catch { return null }
 }
@@ -144,6 +146,95 @@ function TeamStats({ t, team, onPlayer }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function Leaderboards({ t }) {
+  const lb = leaderboards(t)
+  const Board = ({ title, rows, valKey, color }) => (
+    <div className="lb-board">
+      <h4 style={{ color }}>{title}</h4>
+      {rows.length === 0
+        ? <p className="lb-empty">Aún sin datos…</p>
+        : <ol className="lb-list">
+            {rows.map((r, i) => (
+              <li key={r.id} className={`lb-row ${r.team === t.userTeamId ? 'mine' : ''}`}>
+                <span className="lb-rank">{i + 1}</span>
+                <span className="lb-name">{TEAM_BY_ID[r.team]?.flag} {r.n}</span>
+                <span className="lb-val" style={{ color }}>{r[valKey]}</span>
+              </li>
+            ))}
+          </ol>}
+    </div>
+  )
+  return (
+    <div className="leaderboards">
+      <Board title="⚽ Máximos goleadores" rows={lb.scorers} valKey="g" color="var(--green)" />
+      <Board title="🅰️ Máximas asistencias" rows={lb.assisters} valKey="a" color="var(--blue)" />
+      <Board title="🟨 Más amarillas" rows={lb.yellows} valKey="yc" color="#ffd60a" />
+      <Board title="🟥 Más rojas" rows={lb.reds} valKey="rc" color="var(--red)" />
+    </div>
+  )
+}
+
+function RolesPanel({ t, team, setRoles }) {
+  const squad = effSquad(t, team)
+  const cfgOf = p => t.roles[p.id] ?? { intensity: 'normal', role: 'equilibrado' }
+  const change = (id, field, value) => setRoles({ ...t.roles, [id]: { ...cfgOf({ id }), [field]: value } })
+  const preset = cfg => setRoles(Object.fromEntries(squad.map(p => [p.id, { intensity: 'normal', role: 'equilibrado', ...cfg }])))
+
+  const aggr = squad.reduce((s, p) => s + INTENSITIES[cfgOf(p).intensity].card, 0) / squad.length
+  const ambition = squad.reduce((s, p) => s + PLAYER_ROLES[cfgOf(p).role].atk, 0) / squad.length
+  const aggrPct = Math.round(Math.max(0, Math.min(100, (aggr - 0.5) / 2 * 100)))
+  const ambPct = Math.round(Math.max(0, Math.min(100, (ambition - 0.6) / 0.58 * 100)))
+  const creadores = squad.filter(p => cfgOf(p).role === 'creador').length
+  const identity = aggr > 1.8 ? '🔪 Los Carniceros'
+    : ambition > 1.1 ? '⚔️ Vendaval ofensivo'
+    : ambition < 0.82 ? '🚌 El Búnker'
+    : creadores >= 5 ? '🎩 Tiki-taka'
+    : aggr < 0.7 ? '🕊️ Fair play total'
+    : '⚖️ Equipo equilibrado'
+
+  return (
+    <div className="roles-panel">
+      <p className="subs-help">Da personalidad a cada jugador. <b>Intensidad</b>: a más agresividad, más tarjetas pero más peligro arriba. <b>Rol</b>: cómo se mueve en el campo. ¡Experimenta!</p>
+
+      <div className="roles-presets">
+        <span className="rp-lab">Presets:</span>
+        <button className="chip" onClick={() => preset({})}>😐 Reset</button>
+        <button className="chip" onClick={() => preset({ intensity: 'agresivo' })}>😤 Agresivos</button>
+        <button className="chip" onClick={() => preset({ intensity: 'bestia', role: 'llegador' })}>🔥 A muerte</button>
+        <button className="chip" onClick={() => preset({ role: 'muralla' })}>🚌 Búnker</button>
+        <button className="chip" onClick={() => preset({ role: 'creador', intensity: 'suave' })}>🎩 Tiki-taka</button>
+      </div>
+
+      <div className="roles-summary">
+        <div className="rs-identity">{identity}</div>
+        <div className="rs-meters">
+          <div className="rs-meter"><span>Agresividad</span><div className="rs-track"><i style={{ width: `${aggrPct}%`, background: 'var(--red)' }} /></div></div>
+          <div className="rs-meter"><span>Ambición ofensiva</span><div className="rs-track"><i style={{ width: `${ambPct}%`, background: 'var(--gold)' }} /></div></div>
+        </div>
+        {aggr > 1.7 && <p className="pm-warn">⚠️ Plantilla muy agresiva: prepárate para una lluvia de tarjetas y posibles expulsiones.</p>}
+      </div>
+
+      <div className="roles-list">
+        {squad.map(p => {
+          const cfg = cfgOf(p)
+          return (
+            <div key={p.id} className={`role-row ${p.legend ? 'legend' : ''}`}>
+              <span className="role-pos" style={{ background: POS_COLOR[p.pos] }}>{p.npos}</span>
+              <span className="role-name">{p.n}{p.legend && ' 🏆'}{p.star && !p.legend && ' ★'}</span>
+              <select className="role-select" value={cfg.intensity} onChange={e => change(p.id, 'intensity', e.target.value)}>
+                {Object.entries(INTENSITIES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+              </select>
+              <select className="role-select" value={cfg.role} onChange={e => change(p.id, 'role', e.target.value)} title={PLAYER_ROLES[cfg.role].desc}>
+                {Object.entries(PLAYER_ROLES).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
+              </select>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -344,12 +435,16 @@ export default function Simulator({ go }) {
 
       <div className="hub-tabs">
         <button className={`chip ${tab === 'equipo' ? 'on' : ''}`} onClick={() => setTab('equipo')}>👥 Equipo</button>
+        <button className={`chip ${tab === 'roles' ? 'on' : ''}`} onClick={() => setTab('roles')}>🎭 Roles</button>
+        <button className={`chip ${tab === 'ranking' ? 'on' : ''}`} onClick={() => setTab('ranking')}>🥇 Ranking</button>
         <button className={`chip ${tab === 'grupos' ? 'on' : ''}`} onClick={() => setTab('grupos')}>📊 Grupos</button>
         <button className={`chip ${tab === 'cuadro' ? 'on' : ''}`} onClick={() => setTab('cuadro')}>🏆 Eliminatorias</button>
         <button className={`chip ${tab === 'ronda' ? 'on' : ''}`} onClick={() => setTab('ronda')}>📅 Esta ronda</button>
       </div>
 
       {tab === 'equipo' && <TeamStats t={t} team={userTeam} onPlayer={setSelPlayer} />}
+      {tab === 'roles' && <RolesPanel t={t} team={userTeam} setRoles={r => { const nt = { ...t, roles: r }; save(nt); setT(nt) }} />}
+      {tab === 'ranking' && <Leaderboards t={t} />}
       {tab === 'grupos' && <GroupTables t={t} />}
       {tab === 'cuadro' && <Bracket t={t} />}
       {tab === 'ronda' && (

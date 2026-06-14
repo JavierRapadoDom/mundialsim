@@ -3,7 +3,7 @@
 
 import { TEAMS, TEAM_BY_ID, GROUPS, groupTeams, STADIUMS, FINAL_STADIUM } from '../data/teams.js'
 import { getSquad } from '../data/squads.js'
-import { quickSim, minutesOf } from './match.js'
+import { quickSim, minutesOf, roleMods } from './match.js'
 import { groupDate, koDate, restDaysFor } from '../data/calendar.js'
 
 export const STAGES = ['groups', 'R32', 'R16', 'QF', 'SF', 'F', 'done']
@@ -41,6 +41,7 @@ export function newTournament(userTeamId) {
     morale: 62, // moral del equipo del usuario (15-100): sube/baja con los resultados
     legend: null, // leyenda añadida a la plantilla del usuario (si la ruleta lo concede)
     legendPhase: 'roulette', // roulette → pick → done
+    roles: {}, // { playerId: { intensity, role } } configurado por el usuario
   }
 }
 
@@ -81,7 +82,7 @@ export function updateUserMorale(t, f) {
 export function pst(t, p) {
   let s = t.pstate[p.id]
   if (!s) {
-    s = { age: p.age, fit: 100, dev: 0, inj: 0, sus: 0, pj: 0, min: 0, g: 0, a: 0, yc: 0 }
+    s = { age: p.age, fit: 100, dev: 0, inj: 0, sus: 0, pj: 0, min: 0, g: 0, a: 0, yc: 0, rc: 0 }
     t.pstate[p.id] = s
   }
   return s
@@ -93,10 +94,13 @@ function rosterOf(t, team) {
   return (t.legend && t.legend.team === team.id) ? [...base, t.legend] : base
 }
 
-// Plantilla con el estado del torneo aplicado (media efectiva, energía, bajas)
+// Plantilla con el estado del torneo aplicado (media efectiva, energía, bajas,
+// y los roles/intensidad configurados por el usuario, que la simulación lee).
 export function effSquad(t, team) {
+  const roles = t.roles ?? {}
   return rosterOf(t, team).map(p => {
     const s = t.pstate[p.id]
+    const cfg = roles[p.id] ?? { intensity: 'normal', role: 'equilibrado' }
     return {
       ...p,
       r: Math.min(96, p.r + (s?.dev ?? 0)),
@@ -105,7 +109,10 @@ export function effSquad(t, team) {
       fit: s?.fit ?? 100,
       inj: s?.inj ?? 0,
       sus: s?.sus ?? 0,
-      stats: { pj: s?.pj ?? 0, min: s?.min ?? 0, g: s?.g ?? 0, a: s?.a ?? 0, yc: s?.yc ?? 0 },
+      intensity: cfg.intensity,
+      role: cfg.role,
+      ...roleMods(cfg.intensity, cfg.role),
+      stats: { pj: s?.pj ?? 0, min: s?.min ?? 0, g: s?.g ?? 0, a: s?.a ?? 0, yc: s?.yc ?? 0, rc: s?.rc ?? 0 },
     }
   })
 }
@@ -165,6 +172,7 @@ export function applyMatchEffects(t, m) {
       // Sanción por expulsión
       if (p.red) {
         s.sus = Math.max(s.sus, 1)
+        s.rc = (s.rc ?? 0) + 1
         pushNews(t, `🟥 ${p.n} (${team.flag} ${team.code}) sancionado: se pierde el próximo partido`)
       }
       // Lesión sufrida durante el partido
@@ -358,3 +366,31 @@ export function simulateToEnd(t) {
 
 export const teamName = id => TEAM_BY_ID[id]?.name ?? '—'
 export const teamFlag = id => TEAM_BY_ID[id]?.flag ?? ''
+
+// ───────── Clasificaciones individuales del torneo ─────────
+// Resuelve los ids de pstate a nombre/equipo (todas las plantillas + la leyenda)
+function playerIndex(t) {
+  const idx = {}
+  for (const team of TEAMS) for (const p of getSquad(team)) idx[p.id] = { n: p.n, team: team.id, npos: p.npos }
+  if (t.legend) idx[t.legend.id] = { n: t.legend.n, team: t.legend.team, npos: t.legend.npos }
+  return idx
+}
+
+export function leaderboards(t) {
+  const idx = playerIndex(t)
+  const rows = []
+  for (const [id, s] of Object.entries(t.pstate ?? {})) {
+    const info = idx[id]
+    if (!info) continue
+    rows.push({ id, n: info.n, team: info.team, npos: info.npos, g: s.g ?? 0, a: s.a ?? 0, yc: s.yc ?? 0, rc: s.rc ?? 0, min: s.min ?? 0 })
+  }
+  const top = (key, tie) => rows.filter(r => r[key] > 0)
+    .sort((a, b) => b[key] - a[key] || (b[tie] - a[tie]) || a.min - b.min)
+    .slice(0, 10)
+  return {
+    scorers: top('g', 'a'),
+    assisters: top('a', 'g'),
+    yellows: top('yc', 'rc'),
+    reds: top('rc', 'yc'),
+  }
+}

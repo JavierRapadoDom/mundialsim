@@ -702,6 +702,41 @@ table { border-collapse: collapse; }
 .legend-rating { font-family: var(--font-display); font-weight: 900; font-size: 34px; color: var(--gold); margin-top: 8px; }
 
 .legend-banner { padding: 11px 18px; border-radius: var(--radius); background: linear-gradient(120deg, rgba(255, 209, 102, 0.14), var(--card)); box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.35); font-size: 14px; margin-bottom: 16px; }
+
+/* ───────── CLASIFICACIONES (RANKING) ───────── */
+.leaderboards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.lb-board { padding: 16px 18px; border-radius: var(--radius); background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border); }
+.lb-board h4 { font-family: var(--font-display); font-size: 14px; letter-spacing: 0.5px; margin-bottom: 10px; }
+.lb-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+.lb-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.lb-row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 14px; }
+.lb-row:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+.lb-row.mine { background: rgba(255, 209, 102, 0.1); box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.35); }
+.lb-rank { color: var(--muted); font-weight: 700; font-size: 12px; text-align: center; }
+.lb-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-val { font-family: var(--font-display); font-weight: 900; font-size: 16px; }
+
+/* ───────── ROLES ───────── */
+.roles-panel { display: flex; flex-direction: column; gap: 14px; }
+.roles-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rp-lab { font-weight: 700; font-size: 13px; color: var(--muted); }
+.roles-summary { display: flex; flex-direction: column; gap: 10px; padding: 14px 18px; border-radius: var(--radius); background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border); }
+.rs-identity { font-family: var(--font-display); font-weight: 900; font-size: 20px; }
+.rs-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.rs-meter { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: var(--muted); }
+.rs-track { height: 9px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.rs-track i { display: block; height: 100%; border-radius: 99px; transition: width 0.4s; }
+.roles-list { display: flex; flex-direction: column; gap: 6px; }
+.role-row { display: grid; grid-template-columns: 44px 1fr 150px 180px; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--card); box-shadow: inset 0 0 0 1px var(--card-border); }
+.role-row.legend { box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.45); background: rgba(255, 209, 102, 0.05); }
+.role-pos { font-family: var(--font-display); font-weight: 900; font-size: 11px; padding: 3px 6px; border-radius: 99px; color: #081020; text-align: center; }
+.role-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.role-select { padding: 8px 10px; border-radius: 10px; background: var(--bg-2); color: var(--text); border: 1px solid var(--card-border); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
+.role-select:focus { border-color: var(--blue); }
+@media (max-width: 640px) {
+  .role-row { grid-template-columns: 38px 1fr; grid-auto-flow: row; }
+  .role-row .role-select { grid-column: 1 / -1; }
+}
 .pc-altpos { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 5px; font-size: 12px; color: var(--muted); }
 .pc-altpos-chip { font-family: var(--font-display); font-weight: 800; font-size: 11px; padding: 2px 7px; border-radius: 99px; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px var(--card-border); color: var(--text); }
 

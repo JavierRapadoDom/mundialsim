@@ -20,6 +20,41 @@ export const PRESSING = {
   alta: { oppAtk: 0.91, def: 1.05, decay: 1.32, cards: 1.35, label: 'Alta', icon: '🔥' },
 }
 
+// ───────── Roles de jugador (configurables por el usuario) ─────────
+// Intensidad: a más agresividad, más tarjetas (y más rojas) pero más presencia
+// en ataque (tiros y asistencias).
+export const INTENSITIES = {
+  suave: { label: 'Suave', icon: '🕊️', card: 0.5, red: 0.6, shoot: 0.9, assist: 0.9, atk: 0.92, def: 1.03, desc: 'Apenas comete faltas, pero pisa menos el área' },
+  normal: { label: 'Normal', icon: '😐', card: 1, red: 1, shoot: 1, assist: 1, atk: 1, def: 1, desc: 'Equilibrio entre garra y cabeza' },
+  agresivo: { label: 'Agresivo', icon: '😤', card: 1.6, red: 1.4, shoot: 1.2, assist: 1.15, atk: 1.1, def: 0.96, desc: 'Va a por todas: más tarjetas y riesgo, pero genera más peligro' },
+  bestia: { label: 'Muy agresivo', icon: '🔥', card: 2.5, red: 2, shoot: 1.4, assist: 1.3, atk: 1.22, def: 0.9, desc: 'Sin freno: lluvia de tarjetas y posibles rojas, pero un vendaval ofensivo' },
+}
+// Rol de juego: cómo se mueve el jugador en el campo
+export const PLAYER_ROLES = {
+  equilibrado: { label: 'Equilibrado', icon: '⚖️', atk: 1, def: 1, shoot: 1, assist: 1, finish: 1, desc: 'Cumple en ataque y defensa' },
+  estrella: { label: 'Estrella del equipo', icon: '🌟', atk: 1.18, def: 1, shoot: 1.7, assist: 1.5, finish: 1.1, desc: 'El equipo juega para él: acapara tiros y asistencias' },
+  llegador: { label: 'Llegador', icon: '🏃', atk: 1.18, def: 0.82, shoot: 1.4, assist: 1.35, finish: 1, desc: 'Se suma al ataque desde atrás… dejando algún hueco' },
+  creador: { label: 'Creador', icon: '🪄', atk: 1.1, def: 0.95, shoot: 0.7, assist: 2, finish: 0.9, desc: 'Reparte juego: máquina de asistencias' },
+  cazagoles: { label: 'Cazagoles', icon: '🎯', atk: 1.12, def: 1, shoot: 1.35, assist: 0.5, finish: 1.3, desc: 'Frío ante el gol: pocas florituras, mucha puntería' },
+  muralla: { label: 'Muralla', icon: '🧱', atk: 0.6, def: 1.32, shoot: 0.35, assist: 0.5, finish: 1, desc: 'A defender con todo: cierra atrás y casi no sube' },
+}
+export const DEFAULT_ROLE = { intensity: 'normal', role: 'equilibrado' }
+
+// Multiplicadores finales (intensidad × rol) que lee la simulación
+export function roleMods(intensity = 'normal', role = 'equilibrado') {
+  const I = INTENSITIES[intensity] ?? INTENSITIES.normal
+  const R = PLAYER_ROLES[role] ?? PLAYER_ROLES.equilibrado
+  return {
+    cardW: I.card,
+    redMod: I.red,
+    shootW: I.shoot * R.shoot,
+    assistW: I.assist * R.assist,
+    finishMod: R.finish,
+    atkMod: R.atk * I.atk,
+    defMod: R.def * I.def,
+  }
+}
+
 const pick = (rand, arr) => arr[Math.floor(rand() * arr.length)]
 
 const TXT = {
@@ -95,7 +130,7 @@ function attackPower(side, oppSide) {
   const att = ps.filter(p => p.pos === 'DEL')
   const mid = ps.filter(p => p.pos === 'MED')
   const base =
-    (att.reduce((s, p) => s + effRating(p), 0) + mid.reduce((s, p) => s + effRating(p) * 0.6, 0)) /
+    (att.reduce((s, p) => s + effRating(p) * (p.atkMod ?? 1), 0) + mid.reduce((s, p) => s + effRating(p) * 0.6 * (p.atkMod ?? 1), 0)) /
     Math.max(1, att.length + mid.length * 0.6)
   const menMod = ps.length / 11
   const oppPress = oppSide ? PRESSING[oppSide.pressing].oppAtk : 1
@@ -114,7 +149,7 @@ function defensePower(side, oppSide) {
   const gk = ps.find(p => p.pos === 'POR')
   const mid = ps.filter(p => p.pos === 'MED')
   const base =
-    (def.reduce((s, p) => s + effRating(p), 0) + (gk ? effRating(gk) * 0.8 : 0) + mid.reduce((s, p) => s + effRating(p) * 0.35, 0)) /
+    (def.reduce((s, p) => s + effRating(p) * (p.defMod ?? 1), 0) + (gk ? effRating(gk) * 0.8 : 0) + mid.reduce((s, p) => s + effRating(p) * 0.35 * (p.defMod ?? 1), 0)) /
     Math.max(1, def.length + (gk ? 0.8 : 0) + mid.length * 0.35)
   // El "muro y contra" defiende aún mejor cuanto más fuerte es el rival: es la
   // resistencia del modesto que se atrinchera ante un grande.
@@ -130,7 +165,7 @@ const keeper = side => onPitch(side).find(p => p.pos === 'POR')
 
 function weightedShooter(rand, side) {
   const ps = onPitch(side).filter(p => p.pos !== 'POR')
-  const weights = ps.map(p => (p.pos === 'DEL' ? 6 : p.pos === 'MED' ? 3 : 1) * (p.r / 80))
+  const weights = ps.map(p => (p.pos === 'DEL' ? 6 : p.pos === 'MED' ? 3 : 1) * (p.r / 80) * (p.shootW ?? 1))
   const total = weights.reduce((a, b) => a + b, 0)
   let roll = rand() * total
   for (let i = 0; i < ps.length; i++) {
@@ -180,7 +215,8 @@ function resolveChance(m, atkKey, out) {
   // Con "muro y contra" se generan pocas ocasiones, pero las contras son más
   // letales (jugadores lanzados al espacio).
   if (atkSide.tactic === 'cerrojo') pGoal *= TACTICS.cerrojo.counter
-  pGoal = Math.max(0.08, Math.min(0.6, pGoal))
+  pGoal *= shooter.finishMod ?? 1 // un cazagoles define mejor
+  pGoal = Math.max(0.08, Math.min(0.62, pGoal))
   const roll = rand()
 
   if (roll < pGoal) {
@@ -193,7 +229,7 @@ function resolveChance(m, atkKey, out) {
     if (rand() < 0.65) {
       const mates = onPitch(atkSide).filter(p => p !== shooter && p.pos !== 'POR')
       if (mates.length) {
-        const weights = mates.map(p => (p.pos === 'MED' ? 3 : p.pos === 'DEL' ? 2 : 1))
+        const weights = mates.map(p => (p.pos === 'MED' ? 3 : p.pos === 'DEL' ? 2 : 1) * (p.assistW ?? 1))
         const total = weights.reduce((a, b) => a + b, 0)
         let r2 = rand() * total
         let assister = mates[0]
@@ -226,16 +262,19 @@ function aiAutoSub(m, sideKey, outPlayer, evts) {
 function discipline(m, sideKey, out) {
   const rand = m.rand
   const side = m[sideKey]
-  if (rand() < 0.022 * PRESSING[side.pressing].cards) {
-    const ps = onPitch(side)
-    const weights = ps.map(p => (p.pos === 'DEF' ? 3 : p.pos === 'MED' ? 2 : 1))
+  const psC = onPitch(side)
+  // Cuanto más agresiva sea la plantilla, más faltas y tarjetas en total
+  const avgCardW = psC.reduce((s, p) => s + (p.cardW ?? 1), 0) / Math.max(1, psC.length)
+  if (rand() < 0.022 * PRESSING[side.pressing].cards * avgCardW) {
+    const ps = psC
+    const weights = ps.map(p => (p.pos === 'DEF' ? 3 : p.pos === 'MED' ? 2 : 1) * (p.cardW ?? 1))
     const total = weights.reduce((a, b) => a + b, 0)
     let roll = rand() * total
     let victim = ps[0]
     for (let i = 0; i < ps.length; i++) { roll -= weights[i]; if (roll <= 0) { victim = ps[i]; break } }
     side.stats.fouls++
 
-    if (rand() < 0.045) {
+    if (rand() < 0.045 * (victim.redMod ?? 1)) {
       victim.off = true
       victim.red = true
       victim.exitMin = m.minute
